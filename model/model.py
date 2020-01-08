@@ -5,23 +5,17 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import datetime
 
-my_data = pd.read_csv("charlemount.csv")
+my_data = pd.read_csv("result_charlemount.csv")
 
-# print(type(my_data))
-
-# my_data['available_bike_stands'][-1000:].plot(figsize=(12,8))
-# plt.show()
-
-X = my_data['last_update'][-3000:].values
-y_int = my_data['available_bike_stands'][-3000:].values
-
-y = [datetime.fromtimestamp(item) for item in y_int]
+X = my_data[['time_of_day', 'type_of_day', 'time_of_year']][-3000:].values
+y = my_data['available_bike_stands'][-3000:].values
 
 gam = LinearGAM(n_splines=200).fit(X, y)
 
-print(gam.summary())
+gam.summary()
 
 for i, term in enumerate(gam.terms):
+    print("woo")
     if term.isintercept:
         continue
 
