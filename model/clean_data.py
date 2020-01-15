@@ -9,7 +9,7 @@ def seconds_in_previous_days(t):
 
 my_data = pd.read_csv("charlemount.csv")
 f = open('result_charlemount.csv', 'w')
-f.write("available_bike_stands,time_of_day,type_of_day,time_of_year,iso_date\n")
+f.write("available_bike_stands,time_of_day,type_of_day,reverse_type_of_day,time_of_year,day_of_year,iso_date\n")
 
 for line in my_data.sort_values('last_update').values:
     available_bikes = line[4]
@@ -19,10 +19,14 @@ for line in my_data.sort_values('last_update').values:
     
     day_index = time.weekday()
     day_type = ''
+    reverse_day_type = ''
 
     if day_index <= 4:
         day_type = '0'
+        reverse_day_type = '2'
+
     else:
         day_type = '1'
+        reverse_day_type = '1'
 
-    f.write(f"{available_bikes},{datetime_to_seconds(time)},{day_type},{seconds_in_previous_days(time) + datetime_to_seconds(time)},{time.isoformat()}\n")
+    f.write(f"{available_bikes},{datetime_to_seconds(time)},{day_type},{reverse_day_type},{seconds_in_previous_days(time) + datetime_to_seconds(time)},{time.timetuple().tm_yday},{time.isoformat()}\n")
