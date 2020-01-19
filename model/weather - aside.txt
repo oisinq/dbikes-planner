@@ -1,0 +1,22 @@
+Station Name: DUBLIN AIRPORT
+Station Height: 71 M 
+Latitude:53.423  ,Longitude: -6.238
+
+
+date:  -  Date and Time (utc)
+rain:  -  Precipitation Amount (mm)	  
+temp:  -  Air Temperature (C)	
+wetb:  -  Wet Bulb Temperature (C)
+dewpt: -  Dew Point Temperature (C)             
+rhum:  -  Relative Humidity (%)
+vappr: -  Vapour Pressure (hPa)	 
+msl:   -  Mean Sea Level Pressure (hPa)
+wdsp:  -  Mean Wind Speed (knot)
+wddir: -  Predominant Wind Direction (degree)
+ww:    -  Synop code for Present Weather
+w:     -  Synop code for Past Weather
+sun:   -  Sunshine duration (hours)
+vis:   -  Visibility (m)
+clht:  -  Cloud height (100's of ft) - 999 if none 
+clamt: -  Cloud amount
+ind:   -  Indicator
