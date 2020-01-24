@@ -19,8 +19,10 @@ def setup_dicts(stationGams):
 
         stationGams[station] = gam
 
-
 stationGams = {}
+
+# we need to store the availability in the past somewhere
+# I think just have a list where each item is an object saying the availability at all stops at a given moment in time
 
 setup_dicts(stationGams)
 
