@@ -30,10 +30,11 @@ print(dictionary.keys)
 my_data = pd.read_csv("charlemount.csv")
 f = open('result_charlemount.csv', 'w')
 g = open('outlier_charlemount.csv', 'w')
-f.write("available_bike_stands,time_of_day,type_of_day,time_of_year,day_of_year,iso_date,temperature,rain,relative_humidity,vapour_pressure,wind_speed,sunshine,visibility,change_in_bike_availability,epoch\n")
-g.write("available_bike_stands,time_of_day,type_of_day,time_of_year,day_of_year,iso_date,temperature,rain,relative_humidity,vapour_pressure,wind_speed,sunshine,visibility,change_in_bike_availability,epoch\n")
+f.write("available_bike_stands,time_of_day,type_of_day,time_of_year,day_of_year,iso_date,temperature,rain,relative_humidity,vapour_pressure,wind_speed,sunshine,visibility,change_in_bike_availability,epoch,bikes_at_t1,bikes_at_t2\n")
+g.write("available_bike_stands,time_of_day,type_of_day,time_of_year,day_of_year,iso_date,temperature,rain,relative_humidity,vapour_pressure,wind_speed,sunshine,visibility,change_in_bike_availability,epoch,bikes_at_t1,bikes_at_t2\n")
 
 previous_number_of_bikes = 0
+previous_previous_number_of_bikes = 0
 for line in my_data.sort_values('last_update').values:
     available_bikes = line[4]
     epoch_time = line[5]
@@ -56,12 +57,13 @@ for line in my_data.sort_values('last_update').values:
         day_type = '1'
 
     f.write(f"{available_bikes},{datetime_to_seconds(entry_datetime)},{day_type},{seconds_in_previous_days(entry_datetime) + datetime_to_seconds(entry_datetime)}," + \
-    f"{entry_datetime.timetuple().tm_yday},{entry_datetime.isoformat()},{weather_line[4]},{weather_line[1]},{weather_line[9]},{weather_line[8]},{weather_line[12]},{weather_line[17]},{weather_line[18]},{available_bikes-previous_number_of_bikes},{int(epoch_time/1000)}\n")
+    f"{entry_datetime.timetuple().tm_yday},{entry_datetime.isoformat()},{weather_line[4]},{weather_line[1]},{weather_line[9]},{weather_line[8]},{weather_line[12]},{weather_line[17]},{weather_line[18]},{available_bikes-previous_number_of_bikes},{int(epoch_time/1000)},{previous_number_of_bikes},{previous_previous_number_of_bikes}\n")
     
 
     if (available_bikes- previous_number_of_bikes) >= 10 or (previous_number_of_bikes - available_bikes) >= 10:
         g.write(f"{available_bikes},{datetime_to_seconds(entry_datetime)},{day_type},{seconds_in_previous_days(entry_datetime) + datetime_to_seconds(entry_datetime)}," + \
-        f"{entry_datetime.timetuple().tm_yday},{entry_datetime.isoformat()},{weather_line[4]},{weather_line[1]},{weather_line[9]},{weather_line[8]},{weather_line[12]},{weather_line[17]},{weather_line[18]},{available_bikes-previous_number_of_bikes},{int(epoch_time/1000)}\n")
+        f"{entry_datetime.timetuple().tm_yday},{entry_datetime.isoformat()},{weather_line[4]},{weather_line[1]},{weather_line[9]},{weather_line[8]},{weather_line[12]},{weather_line[17]},{weather_line[18]},{available_bikes-previous_number_of_bikes},{int(epoch_time/1000)},{previous_number_of_bikes},{previous_previous_number_of_bikes}\n")
     
+    previous_previous_number_of_bikes = previous_number_of_bikes
     previous_number_of_bikes = available_bikes
    

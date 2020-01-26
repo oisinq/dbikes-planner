@@ -11,7 +11,9 @@ def setup_dicts(stationGams):
     for station in ['charlemount']:
         my_data = pd.read_csv(f"result_{station}.csv")
 
-        X = my_data[['time_of_day', 'type_of_day', 'day_of_year', 'temperature', 'rain', 'relative_humidity', 'vapour_pressure', 'wind_speed', 'sunshine', 'visibility']].values
+        attributes = ['time_of_day', 'type_of_day', 'day_of_year', 'temperature', 'rain', 'relative_humidity', 'vapour_pressure', 'wind_speed', 'sunshine', 'visibility']
+
+        X = my_data[attributes].values
         y = my_data['available_bike_stands'].values
 
         gam = LinearGAM(te(0, 1) + s(2) + s(3) + s(4) + s(5) + s(6) + s(7) + s(8) + s(9), dtype=['numerical', 'categorical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical'])
