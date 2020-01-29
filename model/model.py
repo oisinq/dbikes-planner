@@ -1,5 +1,5 @@
 from pygam.datasets import wage
-from pygam import LinearGAM, s, f, te
+from pygam import LinearGAM, s, f, te, GammaGAM
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -66,11 +66,10 @@ my_data = pd.read_csv("result_charlemount.csv")
 attributes = ['time_of_day', 'type_of_day', 'day_of_year', 'temperature', 'rain', 'relative_humidity', 'vapour_pressure', 'wind_speed']
 
 X = my_data[attributes].values
-#Xother = my_data[['time_of_day', 'type_of_day', 'day_of_year', 'temperature']].values
 
 y = my_data['available_bike_stands'].values
 
-gam = LinearGAM(te(0, 1) + s(2) + s(3) + s(4) + s(5) + s(6) + s(7), n_splines=[65, 20, 20, 10, 20, 10, 10, 25], dtype=['numerical', 'categorical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical'])
+gam = GammaGAM(te(0, 1) + s(2) + s(3) + s(4) + s(5) + s(6) + s(7), n_splines=[35, 20, 20, 10, 20, 10, 10, 25], dtype=['numerical', 'categorical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical'])
 
 gam.gridsearch(X, y)
 

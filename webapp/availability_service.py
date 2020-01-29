@@ -8,8 +8,11 @@ import pandas as pd
 from datetime import datetime
 from station import Station
 from station_status import StationStatus
+from multiprocessing import Process
+import pandas as pd
 
 station_names = ['charlemount']
+URL = "http://maps.googleapis.com/maps/api/geocode/json"
 
 def setup_gams(station_gams):
     for station_name in station_names:
@@ -21,15 +24,19 @@ def setup_gams(station_gams):
         X = my_data[attributes].values
         y = my_data['available_bike_stands'].values
 
-        gam = LinearGAM(te(0, 1) + s(2) + s(3) + s(4) + s(5) + s(6) + s(7) + s(8) + s(9), dtype=['numerical', 'categorical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical'])
+        gam = LinearGAM(te(0, 1) + s(2) + s(3) + s(4) + s(5) + s(6) + s(7), n_splines=[65, 20, 20, 10, 20, 10, 10, 25], dtype=['numerical', 'categorical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical'])
         gam.gridsearch(X, y)
 
         station_gams[station_name] = gam
 
 def setup_stations(stations):
     for station_name in station_names:
-        station = Station(station_names)
-        stations.append(Station(station_names))
+        station = Station(station_name)
+        stations.append(station)
+
+def fetch_bike_data():
+    result = pd.read_json("https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
+    time.sleep(10*60)
 
 station_gams = {}
 stations = []
