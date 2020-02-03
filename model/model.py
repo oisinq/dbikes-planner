@@ -63,13 +63,13 @@ def test_model(gam):
 
 my_data = pd.read_csv("result_charlemount.csv")
 
-attributes = ['time_of_day', 'type_of_day', 'day_of_year', 'temperature', 'rain', 'relative_humidity', 'vapour_pressure', 'wind_speed']
+attributes = ['time_of_day', 'type_of_day', 'day_of_year', 'temperature', 'rain', 'relative_humidity','wind_speed']
 
 X = my_data[attributes].values
 
 y = my_data['available_bike_stands'].values
 
-gam = GammaGAM(te(0, 1) + s(2) + s(3) + s(4) + s(5) + s(6) + s(7), n_splines=[35, 20, 20, 10, 20, 10, 10, 25], dtype=['numerical', 'categorical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical'])
+gam = GammaGAM(te(0, 1) + s(2) + s(3) + s(4) + s(5) + s(6), n_splines=[35, 20, 20, 10, 20, 10, 25], dtype=['numerical', 'categorical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical'])
 
 gam.gridsearch(X, y)
 

@@ -61,7 +61,6 @@ for line in my_data.sort_values('last_update').values:
 
     f.write(f"{available_bikes},{datetime_to_seconds(entry_datetime)},{day_type}," + \
     f"{entry_datetime.timetuple().tm_yday},{entry_datetime.isoformat()},{weather_line[4]},{weather_line[9]},{weather_line[8]},{weather_line[12]},{weather_line[2]}\n")
-    
 
     if (available_bikes- previous_number_of_bikes) >= 10 or (previous_number_of_bikes - available_bikes) >= 10:
         g.write(f"{available_bikes},{datetime_to_seconds(entry_datetime)},{day_type}," + \
