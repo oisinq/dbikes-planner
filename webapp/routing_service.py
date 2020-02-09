@@ -2,14 +2,23 @@ import flask
 import pandas as pd
 import time
 from flask import request, jsonify
-from shapely.geometry import Point, MultiPoint
-from shapely.ops import nearest_points
 from scipy import spatial
 import random
+import requests
 
 def call_ting():
     return random.randint(0,20)
 
+def get_cycle_streets_url(start, end):
+    return f"https://www.cyclestreets.net/api/journey.json?key=b81a31ea96441895&itinerarypoints={start['lng']},{start['lat']}|{end['lng']},{end['lat']}&plan=quietest"
+
+def get_walking_route_url(start, end):
+    if type(start) is tuple:
+        return f"https://api.openrouteservice.org/v2/directions/foot-walking?api_key=5b3ce3597851110001cf6248b66c64a9ecee404f89d0465e2e02f92c&start={start[1]},{start[0]}&end={end['lng']},{end['lat']}"
+    else:
+        return f"https://api.openrouteservice.org/v2/directions/foot-walking?api_key=5b3ce3597851110001cf6248b66c64a9ecee404f89d0465e2e02f92c&start={start['lng']},{start['lat']}&end={end[1]},{end[0]}"
+   
+  
 def best_station(location, station_list, station_tree):
     closest_start_stations = station_tree.query(location, k=3)
 
@@ -56,17 +65,16 @@ def predict_availability():
     else:
         return "Error: No ending location specified."
 
-    print("...")
-    print(start_location)
 
     start_station = best_station(start_location, station_list, station_tree)
     end_station = best_station(end_location, station_list, station_tree)
 
-    print(start_station)
-    print(end_station)
-    
+    cycle_route_json = requests.get(get_cycle_streets_url(start_station['position'], end_station['position']))
 
-    return "<h1>How's it goin' boss</h1>"
+    start_walking_route_json = requests.get(get_walking_route_url(start_location, start_station['position']))
+    end_walking_route_json = requests.get(get_walking_route_url(end_station['position'], end_location))
+    
+    return jsonify({"start_walking_route": start_walking_route_json.json(), "cycle_route": cycle_route_json.json(), "end_walking_route": end_walking_route_json.json()})
 
 
 @app.errorhandler(404)
