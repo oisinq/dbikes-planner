@@ -10,6 +10,22 @@ import random
 def call_ting():
     return random.randint(0,20)
 
+def best_station(location, station_list, station_tree):
+    closest_start_stations = station_tree.query(location, k=3)
+
+    station = None
+    highest_prediction = -1
+
+    for station_index in closest_start_stations[1]:
+        print("Sending a request for " + station_list.iloc[station_index]['address'])
+        availability = call_ting()
+
+        if station is None or highest_prediction < availability:
+            station = station_list.iloc[station_index]
+            highest_prediction = availability
+    
+    return station
+
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
@@ -23,7 +39,7 @@ def predict_availability():
         point = (float(coordinate['lat']), float(coordinate['lng']))
         coordinate_list.append(point)
 
-    tree = spatial.KDTree(coordinate_list)
+    station_tree = spatial.KDTree(coordinate_list)
 
     start_location = 0
     end_location = 0
@@ -43,30 +59,8 @@ def predict_availability():
     print("...")
     print(start_location)
 
-    closest_start_stations = tree.query(start_location, k=3)
-    closest_end_stations = tree.query(end_location, k=3)
-
-    start_station = None
-    highest_prediction = -1
-
-    for station_index in closest_start_stations[1]:
-        print("Sending a request for " + station_list.iloc[station_index]['address'])
-        availability = call_ting()
-
-        if start_station is None or highest_prediction < availability:
-            start_station = station_list.iloc[station_index]
-            highest_prediction = availability
-
-    end_station = None
-    highest_prediction = -1
-
-    for station_index in closest_end_stations[1]:
-        print("Sending a request for " + station_list.iloc[station_index]['address'])
-        availability = call_ting()
-
-        if end_station is None or highest_prediction < availability:
-            end_station = station_list.iloc[station_index]
-            highest_prediction = availability
+    start_station = best_station(start_location, station_list, station_tree)
+    end_station = best_station(end_location, station_list, station_tree)
 
     print(start_station)
     print(end_station)
