@@ -1,8 +1,19 @@
 package io.oisin.fyp;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -18,6 +29,8 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.maps.android.clustering.ClusterItem;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
@@ -32,19 +45,33 @@ import java.util.List;
 /**
  * This version of the map has clustering
  */
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, ActivityCompat.OnRequestPermissionsResultCallback {
 
     private GoogleMap mMap;
     private ClusterManager<MyItem> mClusterManager;
+    private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
+    private boolean mLocationPermissionGranted = false;
+    private RequestQueue queue;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+
+        queue = Volley.newRequestQueue(this);
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
+        Button refreshButton = findViewById(R.id.refresh_icon);
+        refreshButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                makeApiRequest();
+            }
+        });
     }
 
     /**
@@ -105,8 +132,48 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         map.setMapStyle(new MapStyleOptions(getResources()
                 .getString(R.string.map_style)));
 
-        // Instantiate the RequestQueue.
-        RequestQueue queue = Volley.newRequestQueue(this);
+        makeApiRequest();
+
+        // Add a marker in Sydney and move the camera
+        LatLng dublin = new LatLng(53.3498, -6.2603);
+        map.moveCamera(CameraUpdateFactory.zoomTo(16f));
+        map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
+
+        enableMyLocation();
+    }
+    /**
+     * Enables the My Location layer if the fine location permission has been granted.
+     */
+    private void enableMyLocation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            mMap.setMyLocationEnabled(true);
+            mMap.getUiSettings().setMyLocationButtonEnabled(true);
+            mMap.getUiSettings().setMapToolbarEnabled(false);
+        } else {
+            // Show rationale and request permission.
+            ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                    PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION) {
+            if (permissions.length == 1 &&
+                    permissions[0].equals(Manifest.permission.ACCESS_FINE_LOCATION) &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                mMap.setMyLocationEnabled(true);
+                mMap.getUiSettings().setMyLocationButtonEnabled(true);
+                mMap.getUiSettings().setMapToolbarEnabled(true);
+            } else {
+                // Permission was denied. Display an error message.
+            }
+        }
+    }
+
+    private void makeApiRequest() {
         String url = "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692";
 
         // Request a string response from the provided URL.
@@ -114,6 +181,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 new Response.Listener<String>() {
                     @Override
                     public void onResponse(String response) {
+                        mMap.clear();
+                        mClusterManager.clearItems();
+                        
                         try {
                             JSONArray stations = new JSONArray(response);
                             List<MyItem> items = new ArrayList<>();
@@ -139,12 +209,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
 
         queue.add(stringRequest);
-
-        // Add a marker in Sydney and move the camera
-        LatLng dublin = new LatLng(53.3498, -6.2603);
-        map.moveCamera(CameraUpdateFactory.zoomTo(16f));
-        map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
     }
+
 
     public GoogleMap getMap() {
         return mMap;
