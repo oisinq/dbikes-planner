@@ -2,6 +2,8 @@ package io.oisin.fyp;
 
 import androidx.fragment.app.FragmentActivity;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 
 import com.android.volley.Request;
@@ -18,9 +20,7 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.maps.android.clustering.ClusterItem;
 import com.google.maps.android.clustering.ClusterManager;
-import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -30,43 +30,71 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * This version of the map has clustering
+ * This version of the map doesn't have clustering
  */
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+public class MapsActivity2 extends FragmentActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
-    private ClusterManager<MyItem> mClusterManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_maps);
+        setContentView(R.layout.activity_maps2);
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
     }
 
-    /**
-     * Draws profile photos inside markers (using IconGenerator).
-     * When there are multiple people in the cluster, draw multiple photos (using MultiDrawable).
-     */
-    private class StationRenderer extends DefaultClusterRenderer {
+    @Override
+    public void onMapReady(final GoogleMap map) {
+        mMap = map;
 
-        public StationRenderer() {
-            super(getApplicationContext(), getMap(), mClusterManager);
-        }
+        map.setMapStyle(new MapStyleOptions(getResources()
+                .getString(R.string.map_style)));
 
-        @Override
-        protected void onBeforeClusterItemRendered(ClusterItem item, MarkerOptions markerOptions) {
-            int availableBikes = Integer.parseInt(item.getSnippet().split(" bikes available")[0].split(" out of ")[0]);
+        // Instantiate the RequestQueue.
+        RequestQueue queue = Volley.newRequestQueue(this);
+        String url = "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692";
 
-            markerOptions.icon(BitmapDescriptorFactory.fromResource(getResourceForAvailableBikes(availableBikes)));
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        try {
+                            JSONArray stations = new JSONArray(response);
 
-            super.onBeforeClusterItemRendered(item, markerOptions);
-        }
+                            for (int i = 0; i < stations.length(); i++) {
+                                JSONObject station = stations.getJSONObject(i);
+                                LatLng position = new LatLng(station.getJSONObject("position").getDouble("lat"),
+                                        station.getJSONObject("position").getDouble("lng"));
+
+                                MarkerOptions marker = new MarkerOptions()
+                                        .position(position)
+                                        .title(station.getString("address"))
+                                        .snippet(station.getInt("available_bikes") + " out of " + station.getInt("bike_stands") + " bikes available")
+                                        .icon(BitmapDescriptorFactory.fromResource(getResourceForAvailableBikes(station.getInt("available_bikes"))));
+
+                                map.addMarker(marker);
+                            }
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+            }
+        });
+
+        queue.add(stringRequest);
+
+        // Add a marker in Sydney and move the camera
+        LatLng dublin = new LatLng(53.3498, -6.2603);
+        map.moveCamera(CameraUpdateFactory.zoomTo(16f));
+        map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
     }
-
 
     private int getResourceForAvailableBikes(int availableBikes) {
 
@@ -92,61 +120,5 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             default:
                 return R.drawable.nine_plus_bikes_medium;
         }
-    }
-
-    @Override
-    public void onMapReady(final GoogleMap map) {
-        mMap = map;
-        mClusterManager = new ClusterManager<>(this, map);
-        mClusterManager.setRenderer(new StationRenderer());
-        map.setOnCameraIdleListener(mClusterManager);
-
-
-        map.setMapStyle(new MapStyleOptions(getResources()
-                .getString(R.string.map_style)));
-
-        // Instantiate the RequestQueue.
-        RequestQueue queue = Volley.newRequestQueue(this);
-        String url = "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692";
-
-        // Request a string response from the provided URL.
-        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
-                new Response.Listener<String>() {
-                    @Override
-                    public void onResponse(String response) {
-                        try {
-                            JSONArray stations = new JSONArray(response);
-                            List<MyItem> items = new ArrayList<>();
-
-                            for (int i = 0; i < stations.length(); i++) {
-                                JSONObject station = stations.getJSONObject(i);
-                                items.add(new MyItem(station.getJSONObject("position").getDouble("lat"),
-                                        station.getJSONObject("position").getDouble("lng"),
-                                        station.getString("address"),
-                                        station.getInt("available_bikes") + " out of " + station.getInt("bike_stands") + " bikes available"));
-                            }
-
-                            mClusterManager.addItems(items);
-                            mClusterManager.cluster();
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-            }
-        });
-
-        queue.add(stringRequest);
-
-        // Add a marker in Sydney and move the camera
-        LatLng dublin = new LatLng(53.3498, -6.2603);
-        map.moveCamera(CameraUpdateFactory.zoomTo(16f));
-        map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
-    }
-
-    public GoogleMap getMap() {
-        return mMap;
     }
 }
