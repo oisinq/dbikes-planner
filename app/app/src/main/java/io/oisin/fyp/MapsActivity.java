@@ -198,7 +198,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void setUpAutocomplete() {
         if (!Places.isInitialized()) {
-            Places.initialize(getApplicationContext(), getString(R.string.places_key), Locale.US);
+            Places.initialize(getApplicationContext(), getString(R.string.google_maps_key), Locale.US);
         }
 
         // Initialize the AutocompleteSupportFragment.
@@ -206,15 +206,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
 
         // Specify the types of place data to return.
-        autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME));
+        autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG));
 
         RectangularBounds bounds = RectangularBounds.newInstance(
-                new LatLng(53.236118, -6.019679),
-                new LatLng(53.419992, -6.378958));
+                new LatLng(53.236989,-6.486053),
+                new LatLng(53.445249,-6.016388));
+        autocompleteFragment.setLocationRestriction(bounds);
 
-        autocompleteFragment.setLocationBias(bounds);
-
-// Set up a PlaceSelectionListener to handle the response.
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
