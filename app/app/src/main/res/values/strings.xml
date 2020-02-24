@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">FYP</string>
     <string name="title_activity_maps">Map</string>
-    <string name="map_style">[{"elementType": "labels","stylers": [{"visibility": "off"}]},{"featureType": "administrative.neighborhood","stylers": [{"visibility": "off"}]},{"featureType": "transit.line","stylers": [{"visibility": "on"}]},{"featureType": "transit.station","stylers": [{"visibility": "on"}]}]</string>
+    <string name="map_style">[{"eapi_keylementType": "labels","stylers": [{"visibility": "off"}]},{"featureType": "administrative.neighborhood","stylers": [{"visibility": "off"}]},{"featureType": "transit.line","stylers": [{"visibility": "on"}]},{"featureType": "transit.station","stylers": [{"visibility": "on"}]}]</string>
     <string name="title_activity_maps2">Map</string>
     <string name="title_activity_main">MainActivity</string>
 </resources>
