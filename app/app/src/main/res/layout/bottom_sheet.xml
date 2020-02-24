@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/bottom_sheet"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
     android:background="@android:color/darker_gray"
     android:orientation="vertical"
     app:behavior_hideable="true"
@@ -36,17 +36,14 @@
             android:textColor="@android:color/white" />
     </LinearLayout>
 
+    <fragment
+        android:id="@+id/streetviewpanorama"
+        android:layout_width="match_parent"
+        android:layout_height="250dp"
+        class="com.google.android.gms.maps.SupportStreetViewPanoramaFragment" />
+
     <com.github.mikephil.charting.charts.LineChart
         android:id="@+id/availability_chart"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <TextView
-        android:id="@+id/bottom_sheet_rest"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:text="string/bottom_sheet_content"
-        android:textColor="@android:color/white" />
-
+        android:layout_height="300dp" />
 </LinearLayout>

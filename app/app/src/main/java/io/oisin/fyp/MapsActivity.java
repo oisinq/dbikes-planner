@@ -31,12 +31,16 @@ import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.OnStreetViewPanoramaReadyCallback;
+import com.google.android.gms.maps.StreetViewPanorama;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.SupportStreetViewPanoramaFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.StreetViewPanoramaLocation;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.maps.android.clustering.ClusterItem;
 import com.google.maps.android.clustering.ClusterManager;
@@ -65,6 +69,7 @@ import java.util.concurrent.TimeUnit;
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, ActivityCompat.OnRequestPermissionsResultCallback, GoogleMap.OnMarkerClickListener {
 
     private GoogleMap mMap;
+    private StreetViewPanorama mStreetViewPanorama;
     private ClusterManager<MyItem> mClusterManager;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private RequestQueue queue;
@@ -92,6 +97,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 makeApiRequest();
             }
         });
+
+        SupportStreetViewPanoramaFragment streetViewPanoramaFragment =
+                (SupportStreetViewPanoramaFragment)
+                        getSupportFragmentManager().findFragmentById(R.id.streetviewpanorama);
+        streetViewPanoramaFragment.getStreetViewPanoramaAsync(
+                new OnStreetViewPanoramaReadyCallback() {
+                    @Override
+                    public void onStreetViewPanoramaReady(StreetViewPanorama panorama) {
+                        mStreetViewPanorama = panorama;
+                    }
+                });
 
         setUpGraph();
     }
@@ -319,14 +335,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         return mMap;
     }
 
-
     @Override
     public boolean onMarkerClick(final Marker marker) {
         if (marker.getTitle() == null) return false;
 
         View bottomSheet = findViewById(R.id.bottom_sheet);
         BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
 
         TextView text = findViewById(R.id.bottom_sheet_title);
         text.setText(marker.getTitle());
@@ -336,6 +350,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         CameraUpdate yourLocation = CameraUpdateFactory.newLatLngZoom(marker.getPosition(), mMap.getCameraPosition().zoom);
         mMap.animateCamera(yourLocation, 300, null);
+
+        mStreetViewPanorama.setPosition(marker.getPosition());
+
+        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
 
         return true;
     }
