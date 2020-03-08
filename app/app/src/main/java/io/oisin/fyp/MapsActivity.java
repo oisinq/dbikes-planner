@@ -1,10 +1,7 @@
 package io.oisin.fyp;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -68,6 +65,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 /**
  * This version of the map has clustering
  */
@@ -75,7 +76,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private GoogleMap mMap;
     private StreetViewPanorama mStreetViewPanorama;
-    private ClusterManager<MyItem> mClusterManager;
+    private ClusterManager<StationClusterItem> mClusterManager;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private RequestQueue queue;
 
@@ -218,6 +219,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             public void onPlaceSelected(Place place) {
                 // TODO: Get info about the selected place.
                 Log.i(".MapsActivity", "Place: " + place.getName() + ", " + place.getId());
+
+                Intent intent = new Intent(getApplicationContext(), RouteActivity.class);
+                intent.putExtra("place", place);
+                startActivity(intent);
             }
 
             @Override
@@ -343,11 +348,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                         try {
                             JSONArray stations = new JSONArray(response);
-                            List<MyItem> items = new ArrayList<>();
+                            List<StationClusterItem> items = new ArrayList<>();
 
                             for (int i = 0; i < stations.length(); i++) {
                                 JSONObject station = stations.getJSONObject(i);
-                                items.add(new MyItem(station.getJSONObject("position").getDouble("lat"),
+                                items.add(new StationClusterItem(station.getJSONObject("position").getDouble("lat"),
                                         station.getJSONObject("position").getDouble("lng"),
                                         station.getString("address"),
                                         station.getInt("available_bikes") + " out of " + station.getInt("bike_stands") + " bikes available"));

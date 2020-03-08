@@ -1,6 +1,7 @@
 <resources>
-    <string name="app_name">FYP</string>
+    <string name="app_name">Final Year Project</string>
     <string name="title_activity_maps">Map</string>
+    <string name="title_activity_route">Route</string>
     <string name="map_style">[{"elementType": "labels","stylers": [{"visibility": "off"}]},{"featureType": "administrative.neighborhood","stylers": [{"visibility": "off"}]},{"featureType": "transit.line","stylers": [{"visibility": "on"}]},{"featureType": "transit.station","stylers": [{"visibility": "on"}]}]</string>
     <string name="title_activity_maps2">Map</string>
     <string name="title_activity_main">MainActivity</string>

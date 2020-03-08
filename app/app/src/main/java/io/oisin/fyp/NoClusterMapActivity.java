@@ -1,7 +1,5 @@
 package io.oisin.fyp;
 
-import androidx.fragment.app.FragmentActivity;
-
 import android.os.Bundle;
 
 import com.android.volley.Request;
@@ -23,10 +21,12 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import androidx.fragment.app.FragmentActivity;
+
 /**
  * This version of the map doesn't have clustering
  */
-public class MapsActivity2 extends FragmentActivity implements OnMapReadyCallback {
+public class NoClusterMapActivity extends FragmentActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
 
