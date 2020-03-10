@@ -1,9 +1,12 @@
 package io.oisin.fyp;
 
 import android.Manifest;
-import android.content.Intent;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.location.Criteria;
+import android.location.Location;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -34,10 +37,16 @@ import com.google.android.gms.maps.StreetViewPanorama;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.SupportStreetViewPanoramaFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.Dot;
+import com.google.android.gms.maps.model.Gap;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PatternItem;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.api.model.RectangularBounds;
@@ -61,8 +70,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -79,44 +91,47 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private ClusterManager<StationClusterItem> mClusterManager;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private RequestQueue queue;
+    private Map<String, StationClusterItem> clusterItems = new HashMap<>();
+    private List<Polyline> routeLines = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
-        View bottomSheet = findViewById(R.id.bottom_sheet);
-        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
-
-        queue = Volley.newRequestQueue(this);
-
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        Button refreshButton = findViewById(R.id.refresh_icon);
-        refreshButton.setOnClickListener(new View.OnClickListener() {
+        queue = Volley.newRequestQueue(this);
+
+        setUpMapUI();
+        setUpGraph();
+        setUpAutocomplete();
+        setUpBottomSheet();
+
+        pingRoutingServer();
+    }
+
+    private void pingRoutingServer() {
+        String url ="https://oisin-flask-test.herokuapp.com/";
+
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        // Display the first 500 characters of the response string.
+                        Log.d("RouteActivity", "ping:  " + response);
+                    }
+                }, new Response.ErrorListener() {
             @Override
-            public void onClick(View v) {
-                makeApiRequest();
+            public void onErrorResponse(VolleyError error) {
+                Log.e("RouteActivity", "error with ping");
             }
         });
 
-        SupportStreetViewPanoramaFragment streetViewPanoramaFragment =
-                (SupportStreetViewPanoramaFragment)
-                        getSupportFragmentManager().findFragmentById(R.id.streetviewpanorama);
-        streetViewPanoramaFragment.getStreetViewPanoramaAsync(
-                new OnStreetViewPanoramaReadyCallback() {
-                    @Override
-                    public void onStreetViewPanoramaReady(StreetViewPanorama panorama) {
-                        mStreetViewPanorama = panorama;
-                    }
-                });
-
-        setUpGraph();
-        setUpAutocomplete();
+        queue.add(stringRequest);
     }
 
     private void setUpGraph() {
@@ -172,7 +187,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH);
                 values.add(new Entry((float) dateFormat.parse(tokens[4]).getTime(), Float.parseFloat(tokens[0])));
 
-   //             values.add(new Entry(Float.parseFloat(tokens[1]), Float.parseFloat(tokens[0])));
+                //             values.add(new Entry(Float.parseFloat(tokens[1]), Float.parseFloat(tokens[0])));
             }
         } catch (Exception e1) {
             Log.e("MainActivity", "Error" + line, e1);
@@ -197,6 +212,34 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         chart.invalidate();
     }
 
+    private void setUpMapUI() {
+        Button refreshButton = findViewById(R.id.refresh_icon);
+        refreshButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                displayBikeStations();
+            }
+        });
+    }
+
+    private void setUpBottomSheet() {
+        View bottomSheet = findViewById(R.id.bottom_sheet);
+        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+
+
+        SupportStreetViewPanoramaFragment streetViewPanoramaFragment =
+                (SupportStreetViewPanoramaFragment)
+                        getSupportFragmentManager().findFragmentById(R.id.streetviewpanorama);
+        streetViewPanoramaFragment.getStreetViewPanoramaAsync(
+                new OnStreetViewPanoramaReadyCallback() {
+                    @Override
+                    public void onStreetViewPanoramaReady(StreetViewPanorama panorama) {
+                        mStreetViewPanorama = panorama;
+                    }
+                });
+    }
+
     private void setUpAutocomplete() {
         if (!Places.isInitialized()) {
             Places.initialize(getApplicationContext(), getString(R.string.google_maps_key), Locale.US);
@@ -210,19 +253,39 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG));
 
         RectangularBounds bounds = RectangularBounds.newInstance(
-                new LatLng(53.236989,-6.486053),
-                new LatLng(53.445249,-6.016388));
+                new LatLng(53.236989, -6.486053),
+                new LatLng(53.445249, -6.016388));
         autocompleteFragment.setLocationRestriction(bounds);
 
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
-                // TODO: Get info about the selected place.
-                Log.i(".MapsActivity", "Place: " + place.getName() + ", " + place.getId());
+                LatLng dublin = new LatLng(53.3499, -6.2603);
+                mMap.animateCamera(CameraUpdateFactory.newLatLng(dublin));
+                mMap.animateCamera(CameraUpdateFactory.zoomTo(13f));
 
-                Intent intent = new Intent(getApplicationContext(), RouteActivity.class);
-                intent.putExtra("place", place);
-                startActivity(intent);
+                LocationManager locationManager = (LocationManager)
+                        getSystemService(Context.LOCATION_SERVICE);
+                Criteria criteria = new Criteria();
+
+                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    Log.e("MapsActivity","oof");
+                }
+
+                Location location = locationManager.getLastKnownLocation(Objects.requireNonNull(locationManager
+                        .getBestProvider(criteria, false)));
+
+                String start = "53.330667,-6.258590";
+                // String start = + location.getLatitude() + "," + location.getLongitude();
+
+                String end = place.getLatLng().latitude + "," + place.getLatLng().longitude;
+
+                String url = "https://oisin-flask-test.herokuapp.com/?start="+ start + "&end="+end;
+
+                StringRequest stringRequest = getRouteRequest(url);
+
+
+                queue.add(stringRequest);
             }
 
             @Override
@@ -233,10 +296,81 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
     }
 
-    /**
-     * Draws profile photos inside markers (using IconGenerator).
-     * When there are multiple people in the cluster, draw multiple photos (using MultiDrawable).
-     */
+    private StringRequest getRouteRequest(String url) {
+        return new StringRequest(Request.Method.GET, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        try {
+                            for (Polyline line : routeLines) {
+                               line.remove();
+                            }
+
+                            JSONObject route = new JSONObject(response);
+
+                            JSONObject cycleRoute = route.getJSONObject("cycle_route");
+                            JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
+                            JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
+
+                            routeLines.add(mMap.addPolyline(getCycleLine(cycleRoute)));
+                            routeLines.add(mMap.addPolyline(getWalkingRoute(startWalkingRoute)));
+                            routeLines.add(mMap.addPolyline(getWalkingRoute(endWalkingRoute)));
+
+                            mClusterManager.clearItems();
+                            mClusterManager.addItem(clusterItems.get(route.getString("start_station")));
+                            mClusterManager.addItem(clusterItems.get(route.getString("end_station")));
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.e("RouteActivity", "error with route request");
+            }
+        });
+    }
+
+    private PolylineOptions getCycleLine(JSONObject cycleRoute) throws JSONException {
+        String[] coordinates = cycleRoute.getJSONArray("marker").getJSONObject(0)
+                .getJSONObject("@attributes").getString("coordinates").split(" ");
+        PolylineOptions line = new PolylineOptions();
+
+        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+        for (String coordinate : coordinates) {
+            String longitude = coordinate.split(",")[0];
+            String latitude = coordinate.split(",")[1];
+
+            LatLng latLng = new LatLng(Double.parseDouble(latitude), Double.parseDouble(longitude));
+            line.add(latLng);
+            boundsBuilder.include(latLng);
+        }
+
+        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 300));
+
+        return line;
+    }
+
+    private PolylineOptions getWalkingRoute(JSONObject walkingRoute) throws JSONException {
+        JSONArray coordinates = walkingRoute.getJSONArray("features").getJSONObject(0)
+                .getJSONObject("geometry").getJSONArray("coordinates");
+
+        PolylineOptions line = new PolylineOptions();
+
+        for (int i = 0; i < coordinates.length(); i++) {
+            JSONArray array = coordinates.getJSONArray(i);
+
+            String longitude = array.getString(0);
+            String latitude = array.getString(1);
+
+            line.add(new LatLng(Double.parseDouble(latitude), Double.parseDouble(longitude)));
+        }
+
+        List<PatternItem> pattern = Arrays.asList(new Dot(), new Gap(10));
+
+        return line.pattern(pattern);
+    }
+
     private class StationRenderer extends DefaultClusterRenderer {
 
         public StationRenderer() {
@@ -247,14 +381,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         protected void onBeforeClusterItemRendered(ClusterItem item, MarkerOptions markerOptions) {
             int availableBikes = Integer.parseInt(item.getSnippet().split(" bikes available")[0].split(" out of ")[0]);
 
-            markerOptions.icon(BitmapDescriptorFactory.fromResource(getResourceForAvailableBikes(availableBikes)));
+            markerOptions.icon(BitmapDescriptorFactory.fromResource(getResourceForStation(availableBikes)));
 
             super.onBeforeClusterItemRendered(item, markerOptions);
         }
     }
 
-
-    private int getResourceForAvailableBikes(int availableBikes) {
+    private int getResourceForStation(int availableBikes) {
 
         switch (availableBikes) {
             case 0:
@@ -280,32 +413,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
-    @Override
-    public void onMapReady(final GoogleMap map) {
-        map.setOnMarkerClickListener(this);
-
-        mMap = map;
-
-        mClusterManager = new ClusterManager<>(this, map);
-        mClusterManager.setRenderer(new StationRenderer());
-        map.setOnCameraIdleListener(mClusterManager);
-
-
-        map.setMapStyle(new MapStyleOptions(getResources()
-                .getString(R.string.map_style)));
-
-        makeApiRequest();
-
-        // Add a marker in Sydney and move the camera
-        LatLng dublin = new LatLng(53.3498, -6.2603);
-        map.moveCamera(CameraUpdateFactory.zoomTo(16f));
-        map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
-
-        enableMyLocation();
-    }
-    /**
-     * Enables the My Location layer if the fine location permission has been granted.
-     */
     private void enableMyLocation() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -320,22 +427,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode == PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION) {
-            if (permissions.length == 1 &&
-                    permissions[0].equals(Manifest.permission.ACCESS_FINE_LOCATION) &&
-                    grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                mMap.setMyLocationEnabled(true);
-                mMap.getUiSettings().setMyLocationButtonEnabled(true);
-                mMap.getUiSettings().setMapToolbarEnabled(true);
-            } else {
-                // Permission was denied. Display an error message.
-            }
-        }
-    }
-
-    private void makeApiRequest() {
+    private void displayBikeStations() {
         String url = "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692";
 
         // Request a string response from the provided URL.
@@ -352,10 +444,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                             for (int i = 0; i < stations.length(); i++) {
                                 JSONObject station = stations.getJSONObject(i);
-                                items.add(new StationClusterItem(station.getJSONObject("position").getDouble("lat"),
+                                StationClusterItem stationClusterItem = new StationClusterItem(station.getJSONObject("position").getDouble("lat"),
                                         station.getJSONObject("position").getDouble("lng"),
                                         station.getString("address"),
-                                        station.getInt("available_bikes") + " out of " + station.getInt("bike_stands") + " bikes available"));
+                                        station.getInt("available_bikes") + " out of " + station.getInt("bike_stands") + " bikes available");
+
+                                items.add(stationClusterItem);
+                                clusterItems.put(stationClusterItem.getTitle(), stationClusterItem);
                             }
 
                             mClusterManager.addItems(items);
@@ -373,9 +468,47 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         queue.add(stringRequest);
     }
 
-
     public GoogleMap getMap() {
         return mMap;
+    }
+
+    @Override
+    public void onMapReady(final GoogleMap map) {
+        map.setOnMarkerClickListener(this);
+
+        mMap = map;
+
+        mClusterManager = new ClusterManager<>(this, map);
+        mClusterManager.setRenderer(new StationRenderer());
+        map.setOnCameraIdleListener(mClusterManager);
+
+
+        map.setMapStyle(new MapStyleOptions(getResources()
+                .getString(R.string.map_style)));
+
+        displayBikeStations();
+
+        // Add a marker in Dublin and move the camera
+        LatLng dublin = new LatLng(53.3498, -6.2603);
+        map.moveCamera(CameraUpdateFactory.zoomTo(16f));
+        map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
+
+        enableMyLocation();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION) {
+            if (permissions.length == 1 &&
+                    permissions[0].equals(Manifest.permission.ACCESS_FINE_LOCATION) &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                mMap.setMyLocationEnabled(true);
+                mMap.getUiSettings().setMyLocationButtonEnabled(true);
+                mMap.getUiSettings().setMapToolbarEnabled(true);
+            } else {
+                //todo Permission was denied. Display an error message.
+            }
+        }
     }
 
     @Override

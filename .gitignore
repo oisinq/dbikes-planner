@@ -1,1 +1,4 @@
 webapp/__pycache__/
+webapp/.venv/
+.DS_Store
+__pycache__/
