@@ -1,51 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/bottom_sheet"
+    android:id="@+id/route_bottom_sheet"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@android:color/darker_gray"
+    android:background="@android:color/white"
     android:orientation="vertical"
     app:behavior_hideable="true"
-    android:elevation="16dp"
-    android:outlineProvider="bounds"
     app:behavior_peekHeight="@dimen/peek_size"
     app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/colorAccent"
         android:padding="8dp"
         android:orientation="vertical" >
         <TextView
-            android:id="@+id/bottom_sheet_title"
+            android:id="@+id/route_bottom_sheet_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/colorAccent"
+            android:text="Loading route..."
             android:gravity="center"
             android:textStyle="bold"
-            android:textSize="24sp"
-            android:textColor="@android:color/white" />
+            android:textSize="24sp" />
 
         <TextView
-            android:id="@+id/bottom_sheet_byline"
+            android:id="@+id/route_bottom_sheet_byline"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/colorAccent"
             android:gravity="center"
             android:textSize="20sp"
             android:textColor="@android:color/white" />
     </LinearLayout>
-
-    <fragment
-        android:id="@+id/streetviewpanorama"
-        android:layout_width="match_parent"
-        android:layout_height="250dp"
-        class="com.google.android.gms.maps.SupportStreetViewPanoramaFragment" />
-
-    <com.github.mikephil.charting.charts.LineChart
-        android:id="@+id/availability_chart"
-        android:layout_width="match_parent"
-        android:layout_height="300dp" />
 </LinearLayout>

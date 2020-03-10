@@ -39,6 +39,7 @@ import com.google.android.gms.maps.SupportStreetViewPanoramaFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.Dot;
 import com.google.android.gms.maps.model.Gap;
+import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MapStyleOptions;
@@ -47,6 +48,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PatternItem;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.maps.model.RoundCap;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.api.model.RectangularBounds;
@@ -77,14 +79,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
 
 /**
  * This version of the map has clustering
  */
-public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, ActivityCompat.OnRequestPermissionsResultCallback, GoogleMap.OnMarkerClickListener {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, ActivityCompat.OnRequestPermissionsResultCallback, GoogleMap.OnMarkerClickListener {
 
     private GoogleMap mMap;
     private StreetViewPanorama mStreetViewPanorama;
@@ -227,6 +229,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
         bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
 
+        View routeBottomSheet = findViewById(R.id.route_bottom_sheet);
+        bottomSheetBehavior = BottomSheetBehavior.from(routeBottomSheet);
+        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
 
         SupportStreetViewPanoramaFragment streetViewPanoramaFragment =
                 (SupportStreetViewPanoramaFragment)
@@ -263,6 +268,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 LatLng dublin = new LatLng(53.3499, -6.2603);
                 mMap.animateCamera(CameraUpdateFactory.newLatLng(dublin));
                 mMap.animateCamera(CameraUpdateFactory.zoomTo(13f));
+                mClusterManager.clearItems();
+
+                View routeBottomSheet = findViewById(R.id.route_bottom_sheet);
+                BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(routeBottomSheet);
+                bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
 
                 LocationManager locationManager = (LocationManager)
                         getSystemService(Context.LOCATION_SERVICE);
@@ -275,6 +285,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Location location = locationManager.getLastKnownLocation(Objects.requireNonNull(locationManager
                         .getBestProvider(criteria, false)));
 
+                mMap.addMarker(new MarkerOptions().position(new LatLng(53.330667,-6.258590)));
+                mMap.addMarker(new MarkerOptions().position(place.getLatLng()));
                 String start = "53.330667,-6.258590";
                 // String start = + location.getLatitude() + "," + location.getLongitude();
 
@@ -316,7 +328,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                             routeLines.add(mMap.addPolyline(getWalkingRoute(startWalkingRoute)));
                             routeLines.add(mMap.addPolyline(getWalkingRoute(endWalkingRoute)));
 
-                            mClusterManager.clearItems();
                             mClusterManager.addItem(clusterItems.get(route.getString("start_station")));
                             mClusterManager.addItem(clusterItems.get(route.getString("end_station")));
                         } catch (JSONException e) {
@@ -348,7 +359,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 300));
 
-        return line;
+        return line.jointType(JointType.ROUND).endCap(new RoundCap()).startCap(new RoundCap()).color(Color.rgb(134, 122, 214));
     }
 
     private PolylineOptions getWalkingRoute(JSONObject walkingRoute) throws JSONException {
@@ -368,7 +379,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         List<PatternItem> pattern = Arrays.asList(new Dot(), new Gap(10));
 
-        return line.pattern(pattern);
+        return line.pattern(pattern).jointType(JointType.ROUND).endCap(new RoundCap()).startCap(new RoundCap()).color(Color.rgb(134, 122, 214));
     }
 
     private class StationRenderer extends DefaultClusterRenderer {

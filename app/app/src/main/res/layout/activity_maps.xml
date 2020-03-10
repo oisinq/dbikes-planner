@@ -53,6 +53,22 @@
     </fragment>
 
     <!-- include bottom sheet -->
-    <include layout="@layout/bottom_sheet" />
+    <include layout="@layout/bottom_sheet"
+        android:elevation="16dp" />
+
+    <!-- include bottom sheet -->
+    <include layout="@layout/route_bottom_sheet" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/navigation_fab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_navigation_white_24dp"
+        android:visibility="gone"
+        app:tint="@null"
+        android:theme="@style/Widget.MaterialComponents.FloatingActionButton"
+        app:layout_anchor="@+id/bottom_sheet"
+        app:layout_anchorGravity="top|end" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
