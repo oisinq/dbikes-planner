@@ -20,16 +20,44 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Loading route..."
-            android:gravity="center"
+            android:gravity="left"
             android:textStyle="bold"
-            android:textSize="24sp" />
+            android:textColor="@android:color/black"
+            android:textSize="28sp" />
 
-        <TextView
-            android:id="@+id/route_bottom_sheet_byline"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
-            android:textSize="20sp"
-            android:textColor="@android:color/white" />
+            android:orientation="horizontal" >
+            
+            <com.google.android.material.chip.ChipGroup
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:checkedChip="@id/chip_quietest" >
+
+                <com.google.android.material.chip.Chip
+                    style="@style/Widget.MaterialComponents.Chip.Choice"
+                    android:id="@+id/chip_quietest"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Quietest" />
+
+                <com.google.android.material.chip.Chip
+                    style="@style/Widget.MaterialComponents.Chip.Choice"
+                    android:id="@+id/chip_fastest"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Fastest" />
+
+                <com.google.android.material.chip.Chip
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                    android:id="@+id/chip_shortest"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Shortest" />
+            </com.google.android.material.chip.ChipGroup>
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

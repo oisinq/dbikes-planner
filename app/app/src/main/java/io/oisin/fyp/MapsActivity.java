@@ -55,6 +55,7 @@ import com.google.android.libraries.places.api.model.RectangularBounds;
 import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
 import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import com.google.android.material.chip.Chip;
 import com.google.maps.android.clustering.ClusterItem;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
@@ -73,10 +74,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import androidx.core.app.ActivityCompat;
@@ -94,7 +97,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private RequestQueue queue;
     private Map<String, StationClusterItem> clusterItems = new HashMap<>();
-    private List<Polyline> routeLines = new ArrayList<>();
+    private Set<Polyline> routeLines = new HashSet<>();
+    private Polyline quietestCycleRouteLine;
+    private Polyline fastestCycleRouteLine;
+    private Polyline shortestCycleRouteLine;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -224,14 +230,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    private void setUpBottomSheet() {
-        View bottomSheet = findViewById(R.id.bottom_sheet);
+    private void hideBottomSheetById(int id) {
+        View bottomSheet = findViewById(id);
         BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
         bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+    }
 
-        View routeBottomSheet = findViewById(R.id.route_bottom_sheet);
-        bottomSheetBehavior = BottomSheetBehavior.from(routeBottomSheet);
-        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+    private void setUpBottomSheet() {
+        hideBottomSheetById(R.id.station_bottom_sheet);
+        hideBottomSheetById(R.id.route_bottom_sheet);
+
 
         SupportStreetViewPanoramaFragment streetViewPanoramaFragment =
                 (SupportStreetViewPanoramaFragment)
@@ -266,6 +274,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onPlaceSelected(Place place) {
                 LatLng dublin = new LatLng(53.3499, -6.2603);
+                hideBottomSheetById(R.id.station_bottom_sheet);
+
                 mMap.animateCamera(CameraUpdateFactory.newLatLng(dublin));
                 mMap.animateCamera(CameraUpdateFactory.zoomTo(13f));
                 mClusterManager.clearItems();
@@ -296,8 +306,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 StringRequest stringRequest = getRouteRequest(url);
 
-
                 queue.add(stringRequest);
+
+                setUpJourneyTypeChips();
             }
 
             @Override
@@ -306,6 +317,60 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.i(".MapsActivity", "An error occurred: " + status);
             }
         });
+    }
+
+    private void setUpJourneyTypeChips() {
+        Chip fastestChip = findViewById(R.id.chip_fastest);
+
+        fastestChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                hideAllCycleRouteLines();
+
+                if (!routeLines.contains(fastestCycleRouteLine)) {
+                    fastestCycleRouteLine.setVisible(true);
+                    routeLines.add(fastestCycleRouteLine);
+                }
+            }
+        });
+
+        Chip quietestChip = findViewById(R.id.chip_quietest);
+
+        quietestChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                hideAllCycleRouteLines();
+
+                if (!routeLines.contains(quietestCycleRouteLine)) {
+                    quietestCycleRouteLine.setVisible(true);
+                    routeLines.add(quietestCycleRouteLine);
+                }
+            }
+        });
+
+        Chip shortestChip = findViewById(R.id.chip_shortest);
+
+        shortestChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                hideAllCycleRouteLines();
+
+                if (!routeLines.contains(shortestCycleRouteLine)) {
+                    shortestCycleRouteLine.setVisible(true);
+                    routeLines.add(shortestCycleRouteLine);
+                }
+            }
+        });
+    }
+
+    private void hideAllCycleRouteLines() {
+        shortestCycleRouteLine.setVisible(false);
+        quietestCycleRouteLine.setVisible(false);
+        fastestCycleRouteLine.setVisible(false);
+
+        routeLines.remove(shortestCycleRouteLine);
+        routeLines.remove(quietestCycleRouteLine);
+        routeLines.remove(fastestCycleRouteLine);
     }
 
     private StringRequest getRouteRequest(String url) {
@@ -320,11 +385,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                             JSONObject route = new JSONObject(response);
 
-                            JSONObject cycleRoute = route.getJSONObject("cycle_route");
+                            JSONObject quietestCycleRoute = route.getJSONObject("quietest_cycle_route");
+                            JSONObject fastestCycleRoute = route.getJSONObject("fastest_cycle_route");
+                            JSONObject shortestCycleRoute = route.getJSONObject("shortest_cycle_route");
                             JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
                             JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
 
-                            routeLines.add(mMap.addPolyline(getCycleLine(cycleRoute)));
+                            quietestCycleRouteLine = mMap.addPolyline(getCycleLine(quietestCycleRoute));
+                            fastestCycleRouteLine = mMap.addPolyline(getCycleLine(fastestCycleRoute).visible(false));
+                            fastestCycleRouteLine.setVisible(false);
+                            shortestCycleRouteLine = mMap.addPolyline(getCycleLine(shortestCycleRoute).visible(false));
+                            shortestCycleRouteLine.setVisible(false);
+
+                            routeLines.add(quietestCycleRouteLine);
                             routeLines.add(mMap.addPolyline(getWalkingRoute(startWalkingRoute)));
                             routeLines.add(mMap.addPolyline(getWalkingRoute(endWalkingRoute)));
 
@@ -526,7 +599,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public boolean onMarkerClick(final Marker marker) {
         if (marker.getTitle() == null) return false;
 
-        View bottomSheet = findViewById(R.id.bottom_sheet);
+        View bottomSheet = findViewById(R.id.station_bottom_sheet);
         BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
 
         TextView text = findViewById(R.id.bottom_sheet_title);

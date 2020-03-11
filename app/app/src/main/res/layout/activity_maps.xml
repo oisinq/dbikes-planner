@@ -52,10 +52,22 @@
         </RelativeLayout>
     </fragment>
 
-    <!-- include bottom sheet -->
-    <include layout="@layout/bottom_sheet"
-        android:elevation="16dp" />
+<!--    &lt;!&ndash; include bottom sheet &ndash;&gt;-->
+<!--    <View-->
+<!--        android:id="@+id/shadow"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="16dp"-->
+<!--        android:background="@drawable/shape_gradient_top_shadow"-->
+<!--        app:layout_anchor="@id/bottom_sheet" />-->
 
+    <include layout="@layout/bottom_sheet" />
+
+    <View
+        android:id="@+id/route_shadow"
+        android:layout_width="match_parent"
+        android:layout_height="16dp"
+        android:background="@drawable/shape_gradient_top_shadow"
+        app:layout_anchor="@id/route_bottom_sheet" />
     <!-- include bottom sheet -->
     <include layout="@layout/route_bottom_sheet" />
 
@@ -68,7 +80,7 @@
         android:visibility="gone"
         app:tint="@null"
         android:theme="@style/Widget.MaterialComponents.FloatingActionButton"
-        app:layout_anchor="@+id/bottom_sheet"
+        app:layout_anchor="@+id/station_bottom_sheet"
         app:layout_anchorGravity="top|end" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
