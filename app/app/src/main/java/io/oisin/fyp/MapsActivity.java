@@ -85,6 +85,7 @@ import java.util.concurrent.TimeUnit;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
+import io.oisin.fyp.model.RouteType;
 
 /**
  * This version of the map has clustering
@@ -98,9 +99,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private RequestQueue queue;
     private Map<String, StationClusterItem> clusterItems = new HashMap<>();
     private Set<Polyline> routeLines = new HashSet<>();
-    private Polyline quietestCycleRouteLine;
-    private Polyline fastestCycleRouteLine;
-    private Polyline shortestCycleRouteLine;
+    private RouteType quietestCycleRouteType;
+    private RouteType fastestCycleRouteType;
+    private RouteType shortestCycleRouteType;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -327,9 +328,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(View view) {
                 hideAllCycleRouteLines();
 
-                if (!routeLines.contains(fastestCycleRouteLine)) {
-                    fastestCycleRouteLine.setVisible(true);
-                    routeLines.add(fastestCycleRouteLine);
+                if (!routeLines.contains(fastestCycleRouteType.getPolyline())) {
+                    setJourneyTitleText(fastestCycleRouteType);
+                    setJourneySubtitleText(fastestCycleRouteType);
+
+                    fastestCycleRouteType.getPolyline().setVisible(true);
+                    routeLines.add(fastestCycleRouteType.getPolyline());
                 }
             }
         });
@@ -341,9 +345,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(View view) {
                 hideAllCycleRouteLines();
 
-                if (!routeLines.contains(quietestCycleRouteLine)) {
-                    quietestCycleRouteLine.setVisible(true);
-                    routeLines.add(quietestCycleRouteLine);
+                if (!routeLines.contains(quietestCycleRouteType.getPolyline())) {
+                    setJourneyTitleText(quietestCycleRouteType);
+                    setJourneySubtitleText(quietestCycleRouteType);
+
+                    quietestCycleRouteType.getPolyline().setVisible(true);
+                    routeLines.add(quietestCycleRouteType.getPolyline());
                 }
             }
         });
@@ -355,22 +362,42 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(View view) {
                 hideAllCycleRouteLines();
 
-                if (!routeLines.contains(shortestCycleRouteLine)) {
-                    shortestCycleRouteLine.setVisible(true);
-                    routeLines.add(shortestCycleRouteLine);
+                if (!routeLines.contains(shortestCycleRouteType.getPolyline())) {
+                    setJourneyTitleText(shortestCycleRouteType);
+                    setJourneySubtitleText(shortestCycleRouteType);
+
+                    shortestCycleRouteType.getPolyline().setVisible(true);
+                    routeLines.add(shortestCycleRouteType.getPolyline());
                 }
             }
         });
     }
 
-    private void hideAllCycleRouteLines() {
-        shortestCycleRouteLine.setVisible(false);
-        quietestCycleRouteLine.setVisible(false);
-        fastestCycleRouteLine.setVisible(false);
+    //todo: these times don't take into account the walking distance! That's not good!
+    private void setJourneyTitleText(RouteType routeType) {
+        TextView titleText = findViewById(R.id.route_bottom_sheet_title);
 
-        routeLines.remove(shortestCycleRouteLine);
-        routeLines.remove(quietestCycleRouteLine);
-        routeLines.remove(fastestCycleRouteLine);
+        if (routeType.getDistance() < 1000) {
+            titleText.setText(Math.round(routeType.getDuration() / 60) + " mins (" + routeType.getDistance() + "m)");
+        } else {
+            titleText.setText(Math.round(routeType.getDuration() / 60) + " mins (" + Math.round(routeType.getDistance() / 100) / 10.0 + "km)");
+        }
+    }
+
+    private void setJourneySubtitleText(RouteType routeType) {
+        TextView titleText = findViewById(R.id.route_bottom_sheet_subtitle);
+
+        titleText.setText(routeType.getCalories() + " calories burnt – " + routeType.getCo2saved() + "g of CO2 saved");
+    }
+
+    private void hideAllCycleRouteLines() {
+        shortestCycleRouteType.getPolyline().setVisible(false);
+        quietestCycleRouteType.getPolyline().setVisible(false);
+        fastestCycleRouteType.getPolyline().setVisible(false);
+
+        routeLines.remove(shortestCycleRouteType.getPolyline());
+        routeLines.remove(quietestCycleRouteType.getPolyline());
+        routeLines.remove(fastestCycleRouteType.getPolyline());
     }
 
     private StringRequest getRouteRequest(String url) {
@@ -391,18 +418,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
                             JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
 
-                            quietestCycleRouteLine = mMap.addPolyline(getCycleLine(quietestCycleRoute));
-                            fastestCycleRouteLine = mMap.addPolyline(getCycleLine(fastestCycleRoute).visible(false));
-                            fastestCycleRouteLine.setVisible(false);
-                            shortestCycleRouteLine = mMap.addPolyline(getCycleLine(shortestCycleRoute).visible(false));
-                            shortestCycleRouteLine.setVisible(false);
 
-                            routeLines.add(quietestCycleRouteLine);
+                            quietestCycleRouteType = extractRouteType(quietestCycleRoute);
+                            fastestCycleRouteType = extractRouteType(fastestCycleRoute);
+                            shortestCycleRouteType = extractRouteType(shortestCycleRoute);
+
+                            quietestCycleRouteType.getPolyline().setVisible(true);
+
+                            routeLines.add(quietestCycleRouteType.getPolyline());
                             routeLines.add(mMap.addPolyline(getWalkingRoute(startWalkingRoute)));
                             routeLines.add(mMap.addPolyline(getWalkingRoute(endWalkingRoute)));
 
                             mClusterManager.addItem(clusterItems.get(route.getString("start_station")));
                             mClusterManager.addItem(clusterItems.get(route.getString("end_station")));
+
+                            setJourneyTitleText(quietestCycleRouteType);
+                            setJourneySubtitleText(quietestCycleRouteType);
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -415,9 +446,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
+    private RouteType extractRouteType(JSONObject route) throws JSONException {
+        JSONObject object = getAttributesOfCyclePath(route);
+
+        double distance = Double.parseDouble(object.getString("length"));
+        double duration = Double.parseDouble(object.getString("time"));
+        double calories = Double.parseDouble(object.getString("calories"));
+        double co2saved = Double.parseDouble(object.getString("grammesCO2saved"));
+
+        Polyline line = mMap.addPolyline(getCycleLine(route).visible(false));
+
+        return new RouteType(line, distance, duration, calories, co2saved);
+    }
+
+    private JSONObject getAttributesOfCyclePath(JSONObject route) throws JSONException {
+        return route.getJSONArray("marker").getJSONObject(0).getJSONObject("@attributes");
+    }
+
     private PolylineOptions getCycleLine(JSONObject cycleRoute) throws JSONException {
-        String[] coordinates = cycleRoute.getJSONArray("marker").getJSONObject(0)
-                .getJSONObject("@attributes").getString("coordinates").split(" ");
+        String[] coordinates = getAttributesOfCyclePath(cycleRoute).getString("coordinates").split(" ");
         PolylineOptions line = new PolylineOptions();
 
         LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
