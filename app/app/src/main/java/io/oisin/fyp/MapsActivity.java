@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import com.android.volley.Request;
@@ -56,6 +57,7 @@ import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
 import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.chip.Chip;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.maps.android.clustering.ClusterItem;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
@@ -102,6 +104,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private RouteType quietestCycleRouteType;
     private RouteType fastestCycleRouteType;
     private RouteType shortestCycleRouteType;
+    private List<Marker> routeMarkers = new ArrayList<>();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -241,7 +245,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         hideBottomSheetById(R.id.station_bottom_sheet);
         hideBottomSheetById(R.id.route_bottom_sheet);
 
-
         SupportStreetViewPanoramaFragment streetViewPanoramaFragment =
                 (SupportStreetViewPanoramaFragment)
                         getSupportFragmentManager().findFragmentById(R.id.streetviewpanorama);
@@ -281,9 +284,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mMap.animateCamera(CameraUpdateFactory.zoomTo(13f));
                 mClusterManager.clearItems();
 
-                View routeBottomSheet = findViewById(R.id.route_bottom_sheet);
-                BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(routeBottomSheet);
-                bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                setUpRouteUI();
 
                 LocationManager locationManager = (LocationManager)
                         getSystemService(Context.LOCATION_SERVICE);
@@ -296,8 +297,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Location location = locationManager.getLastKnownLocation(Objects.requireNonNull(locationManager
                         .getBestProvider(criteria, false)));
 
-                mMap.addMarker(new MarkerOptions().position(new LatLng(53.330667,-6.258590)));
-                mMap.addMarker(new MarkerOptions().position(place.getLatLng()));
+                routeMarkers.add(mMap.addMarker(new MarkerOptions().position(new LatLng(53.330667,-6.258590))));
+                routeMarkers.add(mMap.addMarker(new MarkerOptions().position(place.getLatLng())));
+
                 String start = "53.330667,-6.258590";
                 // String start = + location.getLatitude() + "," + location.getLongitude();
 
@@ -318,6 +320,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.i(".MapsActivity", "An error occurred: " + status);
             }
         });
+
+        findViewById(R.id.places_autocomplete_clear_button).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                EditText text = findViewById(R.id.places_autocomplete_search_input);
+                text.setText(null);
+
+                deleteRoute();
+            }
+        });
+    }
+
+    private void setUpRouteUI() {
+        View routeBottomSheet = findViewById(R.id.route_bottom_sheet);
+        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(routeBottomSheet);
+        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+
+        FloatingActionButton fab = findViewById(R.id.navigation_fab);
+        fab.setVisibility(View.VISIBLE);
     }
 
     private void setUpJourneyTypeChips() {
@@ -388,6 +409,28 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         TextView titleText = findViewById(R.id.route_bottom_sheet_subtitle);
 
         titleText.setText(routeType.getCalories() + " calories burnt – " + routeType.getCo2saved() + "g of CO2 saved");
+    }
+
+    private void deleteRoute() {
+        for (Polyline line : routeLines) {
+            line.remove();
+        }
+
+        for (Marker marker : routeMarkers) {
+            marker.remove();
+        }
+
+        routeMarkers.clear();
+        routeLines.clear();
+        mClusterManager.clearItems();
+
+        mClusterManager.addItems(clusterItems.values());
+        mClusterManager.cluster();
+
+
+        hideBottomSheetById(R.id.route_bottom_sheet);
+        FloatingActionButton fab = findViewById(R.id.navigation_fab);
+        fab.setVisibility(View.INVISIBLE);
     }
 
     private void hideAllCycleRouteLines() {
