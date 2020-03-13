@@ -87,6 +87,9 @@ import java.util.concurrent.TimeUnit;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import io.oisin.fyp.model.Direction;
 import io.oisin.fyp.model.RouteType;
 
 /**
@@ -280,11 +283,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 LatLng dublin = new LatLng(53.3499, -6.2603);
                 hideBottomSheetById(R.id.station_bottom_sheet);
 
+                setUpRouteUI();
+
                 mMap.animateCamera(CameraUpdateFactory.newLatLng(dublin));
                 mMap.animateCamera(CameraUpdateFactory.zoomTo(13f));
                 mClusterManager.clearItems();
 
-                setUpRouteUI();
 
                 LocationManager locationManager = (LocationManager)
                         getSystemService(Context.LOCATION_SERVICE);
@@ -333,9 +337,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void setUpRouteUI() {
-        View routeBottomSheet = findViewById(R.id.route_bottom_sheet);
-        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(routeBottomSheet);
-        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+        final View routeBottomSheet = findViewById(R.id.route_bottom_sheet);
+        final BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(routeBottomSheet);
+        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+
+//        routeBottomSheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+//            @Override
+//            public void onGlobalLayout() {
+//                routeBottomSheet.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+//                View hidden = routeBottomSheet.getChildAt(2);
+//                bottomSheetBehavior.setPeekHeight(hidden.getTop());
+//            }
+//        });
 
         FloatingActionButton fab = findViewById(R.id.navigation_fab);
         fab.setVisibility(View.VISIBLE);
@@ -454,13 +467,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             }
 
                             JSONObject route = new JSONObject(response);
+                            List<Direction> directions = new ArrayList<>();
 
                             JSONObject quietestCycleRoute = route.getJSONObject("quietest_cycle_route");
                             JSONObject fastestCycleRoute = route.getJSONObject("fastest_cycle_route");
                             JSONObject shortestCycleRoute = route.getJSONObject("shortest_cycle_route");
                             JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
                             JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
-
 
                             quietestCycleRouteType = extractRouteType(quietestCycleRoute);
                             fastestCycleRouteType = extractRouteType(fastestCycleRoute);
@@ -477,6 +490,33 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                             setJourneyTitleText(quietestCycleRouteType);
                             setJourneySubtitleText(quietestCycleRouteType);
+
+                            JSONArray routeObj = quietestCycleRoute.getJSONArray("marker");
+
+                            for (int i = 1; i < routeObj.length(); i++) {
+                                JSONObject directionObj = routeObj.getJSONObject(i).getJSONObject("@attributes");
+
+                                String streetName = directionObj.getString("name");
+                                String turn = "";
+
+                                if (directionObj.getString("turn").isEmpty()) {
+                                    turn = "Straight on";
+                                } else {
+                                    turn = directionObj.getString("turn");
+                                }
+
+                                double distance = directionObj.getDouble("distance");
+                                double time = directionObj.getDouble("time");
+
+                                directions.add(new Direction(turn, distance, time, streetName));
+                            }
+
+                            DirectionsAdapter adapter = new DirectionsAdapter(directions);
+
+                            RecyclerView recyclerView = findViewById(R.id.bottom_sheet_recycler);
+
+                            recyclerView.setAdapter(adapter);
+                            recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
