@@ -10,8 +10,11 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.android.volley.Request;
@@ -108,6 +111,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private RouteType fastestCycleRouteType;
     private RouteType shortestCycleRouteType;
     private List<Marker> routeMarkers = new ArrayList<>();
+    private RecyclerView recyclerView;
 
 
     @Override
@@ -239,13 +243,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void hideBottomSheetById(int id) {
-        View bottomSheet = findViewById(id);
+        View bottomSheet = findViewById(R.id.route_bottom_sheet);
         BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
         bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
     }
 
     private void setUpBottomSheet() {
-        hideBottomSheetById(R.id.station_bottom_sheet);
+        //hideBottomSheetById(R.id.station_bottom_sheet);
         hideBottomSheetById(R.id.route_bottom_sheet);
 
         SupportStreetViewPanoramaFragment streetViewPanoramaFragment =
@@ -280,8 +284,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
+                RelativeLayout shim = findViewById(R.id.route_loading_shim);
+                shim.setVisibility(View.VISIBLE);
+
                 LatLng dublin = new LatLng(53.3499, -6.2603);
-                hideBottomSheetById(R.id.station_bottom_sheet);
+                hideBottomSheetById(0);
+
+                //R.id.station_bottom_sheet
 
                 setUpRouteUI();
 
@@ -339,19 +348,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private void setUpRouteUI() {
         final View routeBottomSheet = findViewById(R.id.route_bottom_sheet);
         final BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(routeBottomSheet);
-        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
 
-//        routeBottomSheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-//            @Override
-//            public void onGlobalLayout() {
-//                routeBottomSheet.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-//                View hidden = routeBottomSheet.getChildAt(2);
-//                bottomSheetBehavior.setPeekHeight(hidden.getTop());
-//            }
-//        });
+        bottomSheetBehavior.setDraggable(false);
+        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
 
-        FloatingActionButton fab = findViewById(R.id.navigation_fab);
-        fab.setVisibility(View.VISIBLE);
+        routeBottomSheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                LinearLayout layout = findViewById(R.id.route_bottom_sheet);
+
+//                layout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+//                View hidden = layout.getChildAt(2);
+//                bottomSheetBehavior.setPeekHeight(hidden.getBottom());
+            }
+        });
     }
 
     private void setUpJourneyTypeChips() {
@@ -368,6 +378,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     fastestCycleRouteType.getPolyline().setVisible(true);
                     routeLines.add(fastestCycleRouteType.getPolyline());
+
+                    DirectionsAdapter adapter = new DirectionsAdapter(fastestCycleRouteType.getDirections());
+                    recyclerView.setAdapter(adapter);
                 }
             }
         });
@@ -385,6 +398,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     quietestCycleRouteType.getPolyline().setVisible(true);
                     routeLines.add(quietestCycleRouteType.getPolyline());
+
+                    DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections());
+                    recyclerView.setAdapter(adapter);
                 }
             }
         });
@@ -402,6 +418,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     shortestCycleRouteType.getPolyline().setVisible(true);
                     routeLines.add(shortestCycleRouteType.getPolyline());
+
+                    DirectionsAdapter adapter = new DirectionsAdapter(shortestCycleRouteType.getDirections());
+                    recyclerView.setAdapter(adapter);
                 }
             }
         });
@@ -467,7 +486,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             }
 
                             JSONObject route = new JSONObject(response);
-                            List<Direction> directions = new ArrayList<>();
 
                             JSONObject quietestCycleRoute = route.getJSONObject("quietest_cycle_route");
                             JSONObject fastestCycleRoute = route.getJSONObject("fastest_cycle_route");
@@ -475,9 +493,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
                             JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
 
-                            quietestCycleRouteType = extractRouteType(quietestCycleRoute);
-                            fastestCycleRouteType = extractRouteType(fastestCycleRoute);
-                            shortestCycleRouteType = extractRouteType(shortestCycleRoute);
+                            String startStation = route.getString("start_station");
+                            String endStation = route.getString("end_station");
+
+                            quietestCycleRouteType = extractRouteType(quietestCycleRoute, startStation, endStation);
+                            fastestCycleRouteType = extractRouteType(fastestCycleRoute, startStation, endStation);
+                            shortestCycleRouteType = extractRouteType(shortestCycleRoute, startStation, endStation);
 
                             quietestCycleRouteType.getPolyline().setVisible(true);
 
@@ -485,38 +506,48 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             routeLines.add(mMap.addPolyline(getWalkingRoute(startWalkingRoute)));
                             routeLines.add(mMap.addPolyline(getWalkingRoute(endWalkingRoute)));
 
+                            RelativeLayout shim = findViewById(R.id.route_loading_shim);
+                            shim.setVisibility(View.GONE);
+
                             mClusterManager.addItem(clusterItems.get(route.getString("start_station")));
                             mClusterManager.addItem(clusterItems.get(route.getString("end_station")));
 
                             setJourneyTitleText(quietestCycleRouteType);
                             setJourneySubtitleText(quietestCycleRouteType);
 
-                            JSONArray routeObj = quietestCycleRoute.getJSONArray("marker");
+                            DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections());
 
-                            for (int i = 1; i < routeObj.length(); i++) {
-                                JSONObject directionObj = routeObj.getJSONObject(i).getJSONObject("@attributes");
-
-                                String streetName = directionObj.getString("name");
-                                String turn = "";
-
-                                if (directionObj.getString("turn").isEmpty()) {
-                                    turn = "Straight on";
-                                } else {
-                                    turn = directionObj.getString("turn");
-                                }
-
-                                double distance = directionObj.getDouble("distance");
-                                double time = directionObj.getDouble("time");
-
-                                directions.add(new Direction(turn, distance, time, streetName));
-                            }
-
-                            DirectionsAdapter adapter = new DirectionsAdapter(directions);
-
-                            RecyclerView recyclerView = findViewById(R.id.bottom_sheet_recycler);
+                            recyclerView = findViewById(R.id.bottom_sheet_recycler);
 
                             recyclerView.setAdapter(adapter);
                             recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
+
+                            FloatingActionButton fab = findViewById(R.id.navigation_fab);
+                            fab.setVisibility(View.VISIBLE);
+
+                            View bottomSheet = findViewById(R.id.route_bottom_sheet);
+                            BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+
+                            bottomSheetBehavior.setDraggable(true);
+                            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+
+
+                            findViewById(R.id.station_layout_contents).setVisibility(View.GONE);
+                            findViewById(R.id.route_layout_contents).setVisibility(View.VISIBLE);
+
+                            fab.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View view) {
+                                    findViewById(R.id.station_layout_contents).setVisibility(View.GONE);
+                                    findViewById(R.id.route_layout_contents).setVisibility(View.VISIBLE);
+
+                                    View bottomSheet = findViewById(R.id.route_bottom_sheet);
+
+                                    BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+
+                                    bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                                }
+                            });
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -529,7 +560,37 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    private RouteType extractRouteType(JSONObject route) throws JSONException {
+    private List<Direction> getDirectionsForRoute(JSONObject route, String startStation, String endStation) throws JSONException {
+        List<Direction> directions = new ArrayList<>();
+
+        JSONArray routeSteps = route.getJSONArray("marker");
+
+        directions.add(new Direction("grab a bike", -1, -1, startStation));
+
+        for (int i = 1; i < routeSteps.length(); i++) {
+            JSONObject directionObj = routeSteps.getJSONObject(i).getJSONObject("@attributes");
+
+            String streetName = directionObj.getString("name");
+            String turn = "";
+
+            if (directionObj.getString("turn").isEmpty()) {
+                turn = "Straight on";
+            } else {
+                turn = directionObj.getString("turn");
+            }
+
+            double distance = directionObj.getDouble("distance");
+            double time = directionObj.getDouble("time");
+
+            directions.add(new Direction(turn, distance, time, streetName));
+        }
+
+        directions.add(new Direction("leave your bike", -1, -1, endStation));
+
+        return directions;
+    }
+
+    private RouteType extractRouteType(JSONObject route, String startStation, String endStation) throws JSONException {
         JSONObject object = getAttributesOfCyclePath(route);
 
         double distance = Double.parseDouble(object.getString("length"));
@@ -539,7 +600,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         Polyline line = mMap.addPolyline(getCycleLine(route).visible(false));
 
-        return new RouteType(line, distance, duration, calories, co2saved);
+        return new RouteType(line, distance, duration, calories, co2saved, getDirectionsForRoute(route, startStation, endStation));
     }
 
     private JSONObject getAttributesOfCyclePath(JSONObject route) throws JSONException {
@@ -729,8 +790,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public boolean onMarkerClick(final Marker marker) {
         if (marker.getTitle() == null) return false;
 
-        View bottomSheet = findViewById(R.id.station_bottom_sheet);
+        findViewById(R.id.route_layout_contents).setVisibility(View.GONE);
+        findViewById(R.id.station_layout_contents).setVisibility(View.VISIBLE);
+
+        //View bottomSheet = findViewById(R.id.station_bottom_sheet);
+        View bottomSheet = findViewById(R.id.route_bottom_sheet);
         BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+        bottomSheetBehavior.setDraggable(true);
 
         TextView text = findViewById(R.id.bottom_sheet_title);
         text.setText(marker.getTitle());

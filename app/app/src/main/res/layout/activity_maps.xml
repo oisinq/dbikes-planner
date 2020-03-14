@@ -52,17 +52,38 @@
         </RelativeLayout>
     </fragment>
 
-    <include layout="@layout/station_bottom_sheet" />
-
-    <View
-        android:id="@+id/route_shadow"
-        android:layout_width="match_parent"
-        android:layout_height="16dp"
-        android:background="@drawable/shape_gradient_top_shadow"
-        app:layout_anchor="@id/route_bottom_sheet" />
-
     <!-- include bottom sheet -->
     <include layout="@layout/route_bottom_sheet" />
+
+    <include layout="@layout/station_bottom_sheet" />
+
+    <RelativeLayout
+        android:id="@+id/route_loading_shim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#bb000000"
+        android:visibility="gone" >
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_centerInParent="true">
+            <ProgressBar
+                android:id="@+id/indeterminateBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:padding="8dp"
+                />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="@android:color/white"
+                android:text="Calculating the best route..."/>
+        </LinearLayout>
+    </RelativeLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/navigation_fab"
@@ -71,6 +92,8 @@
         android:layout_margin="16dp"
         android:src="@drawable/ic_navigation_white_24dp"
         android:visibility="gone"
+        android:backgroundTint="@color/colorPrimary"
+        app:borderWidth="0dp"
         app:tint="@android:color/white"
         android:theme="@style/Widget.MaterialComponents.FloatingActionButton"
         app:layout_anchor="@+id/route_bottom_sheet"

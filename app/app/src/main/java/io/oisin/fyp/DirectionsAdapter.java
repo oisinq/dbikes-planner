@@ -41,6 +41,12 @@ public class DirectionsAdapter extends
 
         viewHolder.directionTitleTextView.setText(title);
 
+        viewHolder.directionArrow.setImageResource(getResourceForArrow(directionString));
+
+        if (direction.getDistance() < 0 && direction.getTime() < 0) {
+            return;
+        }
+
         if (direction.getDistance() < 95) {
             int distance = (int) Math.round(direction.getDistance()/10.0) * 10;
 
@@ -50,10 +56,6 @@ public class DirectionsAdapter extends
 
             viewHolder.directionSubtitleTextView.setText(distance + "m");
         }
-
-
-
-        viewHolder.directionArrow.setImageResource(getResourceForArrow(directionString));
     }
 
     private int getResourceForArrow(String direction) {
@@ -70,6 +72,10 @@ public class DirectionsAdapter extends
                 return R.drawable.left_arrow;
             case "straight on":
                 return R.drawable.straight_ahead_arrow;
+            case "grab a bike":
+                return R.drawable.bike_rack;
+            case "leave your bike":
+                return R.drawable.empty_bike_rack;
         }
 
         return R.drawable.straight_ahead_arrow;

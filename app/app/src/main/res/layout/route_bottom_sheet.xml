@@ -7,17 +7,60 @@
     android:background="@android:color/white"
     android:orientation="vertical"
     app:behavior_hideable="true"
-    android:padding="8dp"
     app:behavior_peekHeight="@dimen/peek_size"
     app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
 
-<!--    <LinearLayout-->
-<!--        android:id="@+id/bottom_sh"-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:padding="8dp"-->
-<!--        android:orientation="vertical" >-->
+    <LinearLayout
+        android:id="@+id/station_layout_contents"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/colorAccent"
+            android:padding="8dp"
+            android:orientation="vertical" >
+            <TextView
+                android:id="@+id/bottom_sheet_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/colorAccent"
+                android:gravity="center"
+                android:textStyle="bold"
+                android:textSize="24sp"
+                android:textColor="@android:color/white" />
 
+            <TextView
+                android:id="@+id/bottom_sheet_byline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/colorAccent"
+                android:gravity="center"
+                android:textSize="20sp"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+        <fragment
+            android:id="@+id/streetviewpanorama"
+            android:layout_width="match_parent"
+            android:layout_height="250dp"
+            class="com.google.android.gms.maps.SupportStreetViewPanoramaFragment" />
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/availability_chart"
+            android:layout_width="match_parent"
+            android:layout_height="300dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/route_layout_contents"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:visibility="gone">
         <TextView
             android:id="@+id/route_bottom_sheet_title"
             android:layout_width="match_parent"
@@ -48,6 +91,7 @@
                 app:selectionRequired="true"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:paddingBottom="8dp"
                 app:checkedChip="@id/chip_quietest" >
 
                 <com.google.android.material.chip.Chip
@@ -77,5 +121,5 @@
             android:id="@+id/bottom_sheet_recycler"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
-<!--    </LinearLayout>-->
+    </LinearLayout>
 </LinearLayout>
