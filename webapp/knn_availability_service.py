@@ -1,4 +1,4 @@
-import clean_data
+import append_data
 import flask
 from flask import request
 import json
@@ -37,10 +37,10 @@ station_names = ['Smithfield North', 'Parnell Square North', 'Clonmel Street', '
 
 stations = {}
 weather = {}
-model = {}
+bikes_model = {}
 
 
-def update_weather_data():
+def get_current_weather():
     js = requests.get(
         "https://api.openweathermap.org/data/2.5/weather?lat=53.277717&lon=-6.218428&APPID"
         "=d8d0b9ed5f181cfbdf3330b0037aff7d&units=metric").text
@@ -54,13 +54,13 @@ def update_weather_data():
 
     parsed_weather['temperature'] = request_weather['main']['temp']
     parsed_weather['humidity'] = request_weather['main']['humidity']
-    parsed_weather['wind'] = request_weather['wind']['speed']
+    parsed_weather['wind_speed'] = request_weather['wind']['speed']
+    parsed_weather['visibility'] = request_weather['visibility']
 
-    global weather
-    weather = parsed_weather
+    return parsed_weather
 
 
-def update_bike_data():
+def update_bike_data(current_weather):
     result = pd.read_json(
         "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
 
@@ -70,16 +70,17 @@ def update_bike_data():
         status = StationStatus(row['available_bikes'], int(row['last_update'] / 1000))
         stations[station_name].add_status(status)
 
-        clean_data.update_record()
-
-        with open(f"./bike_records/result_{station_name}.csv", 'a') as f:
-            result.to_csv(f, header=False)
+        append_data.update_record(current_weather, row)
 
 
 def fit_model(station_name):
-    data = pd.read_csv(open(f"./bike_records/result_{station_name}.csv"))
+    if "/" in station_name:
+        data = pd.read_csv(open(f'stations/Princes Street.csv', 'r'))
+    else:
+        data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'))
 
-    model[station_name].fit(data.loc[:, data.columns != "category"], data['category'])
+    bikes_model[station_name].fit(data.iloc[:, [2,3,4,6,7,9,10,12]], data.iloc[:, 13])
+    print(f"fitted for {station_name}")
 
 
 def refresh_model():
@@ -87,7 +88,6 @@ def refresh_model():
         station_name = station.name
 
         fit_model(station_name)
-    pass
 
 
 class FetchingThread(threading.Thread):
@@ -97,11 +97,12 @@ class FetchingThread(threading.Thread):
     def run(self):
         print("Starting...")
         while True:
-            update_bike_data()
-            update_weather_data()
+            weather = get_current_weather()
+            update_bike_data(weather)
             refresh_model()
 
-            time.sleep(60 * 10)
+            print("thread: i sleep...")
+            time.sleep(60*5)
 
 
 def setup():
@@ -109,14 +110,14 @@ def setup():
         station = Station(station_name)
         stations[station_name] = station
 
-        model[station_name] = KNeighborsClassifier(n_neighbors=3, weights='distance')
+        bikes_model[station_name] = KNeighborsClassifier(n_neighbors=3, weights='distance')
 
 
 setup()
 
 fetching_thread = FetchingThread()
 fetching_thread.start()
-fetching_thread.join()
+#fetching_thread.join()
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
@@ -134,7 +135,7 @@ def predict_availability():
     else:
         return "Error: No minutes field provided. Please specify an id."
 
-    if station not in model.keys():
+    if station not in bikes_model.keys():
         return "Error: Invalid station provided. Please specify a valid station name"
 
     prediction = 'yurt'

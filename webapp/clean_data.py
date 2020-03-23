@@ -36,7 +36,7 @@ def category(current_available_bikes):
         return "high"
 
 
-def update_record():
+def update_record(weather):
     dictionary = {}
     my_data = pd.read_csv("weather.csv")
 

@@ -4,14 +4,6 @@ class Station:
     def __init__(self, name):
         self.name = name
 
-    @property
-    def name(self):
-        return self.name
-
-    @name.setter
-    def name(self, value):
-        self._name = value
-
     def add_status(self, status):
         self.statuses.append(status)
 
