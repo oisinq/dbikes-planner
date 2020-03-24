@@ -1,11 +1,11 @@
-import append_data
-import flask
+from datetime import datetime, timedelta
+from routes import *
+
+import update_station_records
 from flask import request
 import json
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
-from station import Station
-from station_status import StationStatus
 import threading
 import time
 import requests
@@ -35,29 +35,30 @@ station_names = ['Smithfield North', 'Parnell Square North', 'Clonmel Street', '
                  'Grangegorman Lower (South)', 'Mountjoy Square West', 'Wilton Terrace', 'Emmet Road',
                  'Heuston Bridge (North)', 'Leinster Street South', 'Blackhall Place']
 
-stations = {}
 weather = {}
 bikes_model = {}
+bikestands_model = {}
 
 
-def get_current_weather():
+def update_weather():
     js = requests.get(
         "https://api.openweathermap.org/data/2.5/weather?lat=53.277717&lon=-6.218428&APPID"
         "=d8d0b9ed5f181cfbdf3330b0037aff7d&units=metric").text
 
     request_weather = json.loads(js)
+
     parsed_weather = {'rain': 0.0}
 
-    if "rain" in request_weather:
-        if "1h" in request_weather["rain"]:
-            parsed_weather['rain'] = request_weather["rain"]["1h"]
+    if "rain" in request_weather and "1h" in request_weather["rain"]:
+        parsed_weather['rain'] = request_weather["rain"]["1h"]
 
     parsed_weather['temperature'] = request_weather['main']['temp']
     parsed_weather['humidity'] = request_weather['main']['humidity']
     parsed_weather['wind_speed'] = request_weather['wind']['speed']
     parsed_weather['visibility'] = request_weather['visibility']
 
-    return parsed_weather
+    global weather
+    weather = parsed_weather
 
 
 def update_bike_data(current_weather):
@@ -65,12 +66,7 @@ def update_bike_data(current_weather):
         "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
 
     for _index, row in result.iterrows():
-        station_name = row["address"]
-
-        status = StationStatus(row['available_bikes'], int(row['last_update'] / 1000))
-        stations[station_name].add_status(status)
-
-        append_data.update_record(current_weather, row)
+        update_station_records.update_record(row, current_weather)
 
 
 def fit_model(station_name):
@@ -79,14 +75,13 @@ def fit_model(station_name):
     else:
         data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'))
 
-    bikes_model[station_name].fit(data.iloc[:, [2,3,4,6,7,9,10,12]], data.iloc[:, 13])
+    bikes_model[station_name].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 13])
+    bikestands_model[station_name].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 14])
     print(f"fitted for {station_name}")
 
 
 def refresh_model():
-    for station in stations.values():
-        station_name = station.name
-
+    for station_name in station_names:
         fit_model(station_name)
 
 
@@ -97,34 +92,28 @@ class FetchingThread(threading.Thread):
     def run(self):
         print("Starting...")
         while True:
-            weather = get_current_weather()
+            update_weather()
             update_bike_data(weather)
             refresh_model()
 
             print("thread: i sleep...")
-            time.sleep(60*5)
+            time.sleep(60 * 5)
 
 
 def setup():
     for station_name in station_names:
-        station = Station(station_name)
-        stations[station_name] = station
-
-        bikes_model[station_name] = KNeighborsClassifier(n_neighbors=3, weights='distance')
+        bikes_model[station_name] = KNeighborsClassifier(n_neighbors=5, weights='distance')
+        bikestands_model[station_name] = KNeighborsClassifier(n_neighbors=5, weights='distance')
 
 
 setup()
 
 fetching_thread = FetchingThread()
 fetching_thread.start()
-#fetching_thread.join()
-
-app = flask.Flask(__name__)
-app.config["DEBUG"] = True
 
 
-@app.route('/', methods=['GET'])
-def predict_availability():
+@routes.route('/predict/bikes', methods=['GET'])
+def predict_bike_availability():
     if 'station' in request.args:
         station = request.args['station']
     else:
@@ -138,14 +127,75 @@ def predict_availability():
     if station not in bikes_model.keys():
         return "Error: Invalid station provided. Please specify a valid station name"
 
-    prediction = 'yurt'
+    current_time = datetime.now()
+    request_time = current_time + timedelta(minutes=minutes)
 
-    return f"<h1>My answer is...</h1><p>{prediction}. Am I close?</p>"
+    time_of_day = (request_time.hour * 60 + request_time.minute) * 60 + request_time.second
+    type_of_day = 0 if request_time.weekday() < 5 else 10
+    day_of_year = request_time.timetuple().tm_yday
+
+    prediction = bikes_model[station].predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
+                                                weather['humidity'], weather['wind_speed'], weather['rain'],
+                                                weather['visibility']]])
+
+    prediction_probs = bikes_model[station].predict_proba(
+        [[time_of_day, type_of_day, day_of_year, weather['temperature'],
+          weather['humidity'], weather['wind_speed'], weather['rain'],
+          weather['visibility']]])
+
+    classes = bikes_model[station].classes_
+    probs = {}
+
+    for index, label in enumerate(classes):
+        probs[label] = prediction_probs[0][index]
+
+    result = {"prediction": prediction[0], "probabilities": probs}
+
+    return json.dumps(result)
 
 
-@app.errorhandler(404)
+@routes.route('/predict/bikestands', methods=['GET'])
+def predict_bike_stands_availability():
+    if 'station' in request.args:
+        station = request.args['station']
+    else:
+        return "Error: No station field provided. Please specify an id."
+
+    if 'minutes' in request.args:
+        minutes = int(request.args['minutes'])
+    else:
+        return "Error: No minutes field provided. Please specify an id."
+
+    if station not in bikes_model.keys():
+        return "Error: Invalid station provided. Please specify a valid station name"
+
+    current_time = datetime.now()
+    request_time = current_time + timedelta(minutes=minutes)
+
+    time_of_day = (request_time.hour * 60 + request_time.minute) * 60 + request_time.second
+    type_of_day = 0 if request_time.weekday() < 5 else 10
+    day_of_year = request_time.timetuple().tm_yday
+
+    prediction = bikes_model[station].predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
+                                                weather['humidity'], weather['wind_speed'], weather['rain'],
+                                                weather['visibility']]])
+
+    prediction_probs = bikes_model[station].predict_proba(
+        [[time_of_day, type_of_day, day_of_year, weather['temperature'],
+          weather['humidity'], weather['wind_speed'], weather['rain'],
+          weather['visibility']]])
+
+    classes = bikes_model[station].classes_
+    probs = {}
+
+    for index, label in enumerate(classes):
+        probs[label] = prediction_probs[0][index]
+
+    result = {"prediction": prediction[0], "probabilities": probs}
+
+    return json.dumps(result)
+
+
+@routes.errorhandler(404)
 def page_not_found(e):
     return "<h1>404</h1><p>The resource could not be found. Sorry!</p>", 404
-
-
-app.run()

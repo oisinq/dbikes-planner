@@ -1,6 +1,6 @@
 import pandas as pd
 
-my_data = pd.read_csv("result_Charlemont Street.csv")
+my_data = pd.read_csv("../../model/result_Charlemont Street.csv")
 f = open('charlemont_with_category.csv', 'w')
 
 f.write("available_bike_stands,time_of_day,type_of_day,time_of_year,day_of_year,iso_date,temperature,rain,relative_humidity,vapour_pressure,wind_speed,sunshine,visibility,change_in_bike_availability,epoch,bikes_at_t1,bikes_at_t2,category\n")

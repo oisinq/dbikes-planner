@@ -1,13 +1,10 @@
 import flask
-from flask import request, jsonify
-from pygam.datasets import wage
-from pygam import LinearGAM, s, f, te
-import numpy as np
-import matplotlib.pyplot as plt
+from flask import request
+from pygam import LinearGAM, s, te
 import pandas as pd
 from datetime import datetime
-from station import Station
-from station_status import StationStatus
+from model.station import Station
+from model.station_status import StationStatus
 import threading
 import requests
 import json
@@ -29,7 +26,7 @@ class myThread (threading.Thread):
 
             stations[row["address"]].add_status(status)
 
-        with open('bike_times.csv', 'a') as f:
+        with open('../bike_times.csv', 'a') as f:
             result.to_csv(f, header=False)
 
         time.sleep(60*10)

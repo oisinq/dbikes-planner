@@ -36,19 +36,16 @@ def category(quantity):
         return "high"
 
 
-def update_record(weather, row):
+def update_record(station, weather):
 
-    if "/" in row['address']:
+    if "/" in station['address']:
         f = open(f'stations/Princes Street.csv', 'a')
     else:
-        f = open(f'stations/{row["address"]}.csv', 'a')
+        f = open(f'stations/{station["address"]}.csv', 'a')
 
-    # available_bikes,availabile_bike_stands,time_of_day, type_of_day,day_of_year,iso_date,temperature,relative_humidity
-    # ,vapour_pressure	wind_speed	rain	sunshine	visibility	bike_availability	bike_stand_availability
-
-    available_bike_stands = row['available_bike_stands']
-    available_bikes = row['available_bikes']
-    epoch_time = row['last_update']
+    available_bike_stands = station['available_bike_stands']
+    available_bikes = station['available_bikes']
+    epoch_time = station['last_update']
 
     entry_datetime = datetime.fromtimestamp(epoch_time / 1000)
 

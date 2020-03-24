@@ -1,10 +1,7 @@
 import clean_data
-import json
 import pandas as pd
-from station_status import StationStatus
 import threading
 import time
-import requests
 
 
 def update_bike_data():

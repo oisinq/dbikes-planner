@@ -1,7 +1,6 @@
 import pandas as pd
 import requests
-from station import Station
-from station_status import StationStatus
+from model.station_status import StationStatus
 import json
 
 def read_stations():
