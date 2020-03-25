@@ -9,7 +9,7 @@ import requests
 
 def predict_station(station, minutes, request_type):
     return requests.get(
-        f"{flask.request.host_url}/predict/{request_type}?minutes={minutes}&station={station['address']}")
+        f"{flask.request.host_url}predict/{request_type}?minutes={minutes}&station={station['address']}")
 
 
 def get_cycle_streets_url(start, end, plan_type):
@@ -82,7 +82,7 @@ def find_best_station(location, station_list, station_tree, request_type, minute
             station_index = closest_start_stations[1][results.index(results_at_level[0])]
             return station_list.iloc[station_index]
         elif len(results_at_level) > 1:  # if more than one at this level, return the station who has the better chance
-            max_item = max(results_at_level, key=lambda x: x['probabilities'][hierarchy[level_index]])
+            max_item = max(results_at_level, key=lambda x: x['probabilities'][hierarchy[level_index+1]])
             station_index = closest_start_stations[1][results.index(max_item)]
             return station_list.iloc[station_index]
 

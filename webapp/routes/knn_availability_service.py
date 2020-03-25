@@ -6,6 +6,7 @@ from flask import request
 import json
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
+from apscheduler.schedulers.background import BackgroundScheduler
 import threading
 import time
 import requests
@@ -85,6 +86,12 @@ def refresh_model():
         fit_model(station_name)
 
 
+def refresh_data():
+    update_weather()
+    update_bike_data(weather)
+    refresh_model()
+
+
 class FetchingThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
@@ -92,9 +99,7 @@ class FetchingThread(threading.Thread):
     def run(self):
         print("Starting...")
         while True:
-            update_weather()
-            update_bike_data(weather)
-            refresh_model()
+            refresh_data()
 
             print("thread: i sleep...")
             time.sleep(60 * 5)
@@ -108,9 +113,13 @@ def setup():
 
 setup()
 
-fetching_thread = FetchingThread()
-fetching_thread.start()
+# fetching_thread = FetchingThread()
+# fetching_thread.start()
+refresh_data()
 
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=refresh_data, trigger="interval", minutes=5)
+scheduler.start()
 
 @routes.route('/predict/bikes', methods=['GET'])
 def predict_bike_availability():
