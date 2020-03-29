@@ -64,7 +64,6 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.maps.android.MarkerManager;
-import com.google.maps.android.clustering.ClusterItem;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 
@@ -95,6 +94,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import info.hoang8f.android.segmented.SegmentedGroup;
 import io.oisin.fyp.model.Direction;
 import io.oisin.fyp.model.RouteType;
 
@@ -103,17 +103,18 @@ import io.oisin.fyp.model.RouteType;
  */
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, ActivityCompat.OnRequestPermissionsResultCallback, GoogleMap.OnMarkerClickListener {
 
+    private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private GoogleMap mMap;
     private StreetViewPanorama mStreetViewPanorama;
     private ClusterManager<StationClusterItem> mClusterManager;
     private Marker selectedStation;
-    private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private RequestQueue queue;
     private Map<String, StationClusterItem> clusterItems = new HashMap<>();
     private Set<Polyline> routeLines = new HashSet<>();
     private RouteType quietestCycleRouteType;
     private RouteType fastestCycleRouteType;
     private RouteType shortestCycleRouteType;
+    private StationClusterItem mRouteEndStation;
     private List<Marker> routeMarkers = new ArrayList<>();
     private RecyclerView recyclerView;
 
@@ -315,8 +316,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 LatLng dublin = new LatLng(53.3499, -6.2603);
                 hideBottomSheetById(0);
 
-                //R.id.station_bottom_sheet
-
                 setUpRouteUI();
 
                 mMap.animateCamera(CameraUpdateFactory.newLatLng(dublin));
@@ -329,13 +328,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Criteria criteria = new Criteria();
 
                 if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    Log.e("MapsActivity","oof");
+                    Log.e("MapsActivity", "oof");
                 }
 
                 Location location = locationManager.getLastKnownLocation(Objects.requireNonNull(locationManager
                         .getBestProvider(criteria, false)));
 
-                routeMarkers.add(mMap.addMarker(new MarkerOptions().position(new LatLng(53.330667,-6.258590))));
+                routeMarkers.add(mMap.addMarker(new MarkerOptions().position(new LatLng(53.330667, -6.258590))));
                 routeMarkers.add(mMap.addMarker(new MarkerOptions().position(place.getLatLng())));
 
                 String start = "53.330667,-6.258590";
@@ -343,12 +342,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 String end = place.getLatLng().latitude + "," + place.getLatLng().longitude;
 
-                String url = "https://dbikes-planner.herokuapp.com/route?start="+ start + "&end="
+                String url = "https://dbikes-planner.herokuapp.com/route?start=" + start + "&end="
                         + end + "&minutes=0";
 
                 StringRequest stringRequest = getRouteRequest(url);
 
                 queue.add(stringRequest);
+
+                SegmentedGroup group = findViewById(R.id.station_type_segment_group);
+                group.setVisibility(View.INVISIBLE);
 
                 setUpJourneyTypeChips();
             }
@@ -367,6 +369,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 text.setText(null);
 
                 deleteRoute();
+
+                SegmentedGroup group = findViewById(R.id.station_type_segment_group);
+                group.setVisibility(View.VISIBLE);
+
+                mRouteEndStation.setEndStation(false);
+                mRouteEndStation.setSnippet(generateMarkerSnippet(mRouteEndStation.getAvailableBikes(),
+                        mRouteEndStation.getAvailableBikes()));
             }
         });
     }
@@ -508,7 +517,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     public void onResponse(String response) {
                         try {
                             for (Polyline line : routeLines) {
-                               line.remove();
+                                line.remove();
                             }
 
                             JSONObject route = new JSONObject(response);
@@ -519,12 +528,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
                             JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
 
-                            String startStation = route.getString("start_station");
-                            String endStation = route.getString("end_station");
+                            String startStationName = route.getString("start_station");
+                            String endStationName = route.getString("end_station");
 
-                            quietestCycleRouteType = extractRouteType(quietestCycleRoute, startStation, endStation);
-                            fastestCycleRouteType = extractRouteType(fastestCycleRoute, startStation, endStation);
-                            shortestCycleRouteType = extractRouteType(shortestCycleRoute, startStation, endStation);
+                            quietestCycleRouteType = extractRouteType(quietestCycleRoute, startStationName, endStationName);
+                            fastestCycleRouteType = extractRouteType(fastestCycleRoute, startStationName, endStationName);
+                            shortestCycleRouteType = extractRouteType(shortestCycleRoute, startStationName, endStationName);
 
                             quietestCycleRouteType.getPolyline().setVisible(true);
 
@@ -535,8 +544,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             RelativeLayout shim = findViewById(R.id.route_loading_shim);
                             shim.setVisibility(View.GONE);
 
-                            mClusterManager.addItem(clusterItems.get(route.getString("start_station")));
-                            mClusterManager.addItem(clusterItems.get(route.getString("end_station")));
+                            StationClusterItem startStation = clusterItems.get(route.getString("start_station"));
+                            startStation.setStartStation(true);
+                            StationClusterItem endStation = clusterItems.get(route.getString("end_station"));
+                            endStation.setEndStation(true);
+                            endStation.setSnippet((endStation.getTotalSpaces() - endStation.getAvailableBikes()) + " out of " + endStation.getTotalSpaces() + " spaces available");
+                            mRouteEndStation = endStation;
+                            mClusterManager.addItem(startStation);
+                            mClusterManager.addItem(endStation);
 
                             setJourneyTitleText(quietestCycleRouteType);
                             setJourneySubtitleText(quietestCycleRouteType);
@@ -682,40 +697,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    private class StationRenderer extends DefaultClusterRenderer {
-
-        public StationRenderer() {
-            super(getApplicationContext(), getMap(), mClusterManager);
-        }
-
-        @Override
-        protected void onBeforeClusterItemRendered(ClusterItem item, MarkerOptions markerOptions) {
-            String splitter;
-            if (item.getSnippet().contains("bikes available")) {
-                splitter = " bikes available";
-            } else {
-                splitter = " spaces available";
-            }
-
-            int totalSpaces = Integer.parseInt(item.getSnippet().split(splitter)[0].split(" out of ")[1]);
-            String snippet = item.getSnippet();
-            int availableBikes;
-            int availableSpaces;
-
-            if (splitter.equals(" bikes available")) {
-                availableBikes = Integer.parseInt(snippet.split(" out of ")[0]);
-                availableSpaces = totalSpaces - availableBikes;
-            } else {
-                availableSpaces = Integer.parseInt(snippet.split(" out of ")[0]);
-                availableBikes = totalSpaces - availableSpaces;
-            }
-
-            markerOptions.icon(BitmapDescriptorFactory.fromResource(getResourceForStation(availableBikes, availableSpaces, checkClusterType())));
-
-            super.onBeforeClusterItemRendered(item, markerOptions);
-        }
-    }
-
     private int getResourceForStation(int availableBikes, int availableSpaces, String stationType) {
 
         if (stationType.equals("bikes")) {
@@ -802,7 +783,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                         station.getJSONObject("position").getDouble("lng"),
                                         station.getString("address"),
                                         generateMarkerSnippet(station.getInt("available_bikes"),
-                                                station.getInt("bike_stands")));
+                                                station.getInt("bike_stands")),
+                                        station.getInt("available_bikes"),
+                                        station.getInt("bike_stands"));
 
                                 items.add(stationClusterItem);
                                 clusterItems.put(stationClusterItem.getTitle(), stationClusterItem);
@@ -827,7 +810,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if (checkClusterType().equals("bikes")) {
             return availableBikes + " out of " + totalBikeStands + " bikes available";
         } else {
-            return (totalBikeStands-availableBikes) + " out of " + totalBikeStands + " spaces available";
+            return (totalBikeStands - availableBikes) + " out of " + totalBikeStands + " spaces available";
         }
     }
 
@@ -902,5 +885,49 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         selectedStation = marker;
 
         return true;
+    }
+
+    private class StationRenderer extends DefaultClusterRenderer<StationClusterItem> {
+
+        public StationRenderer() {
+            super(getApplicationContext(), getMap(), mClusterManager);
+        }
+
+        @Override
+        protected void onBeforeClusterItemRendered(StationClusterItem item, MarkerOptions markerOptions) {
+            String splitter;
+            if (item.getSnippet().contains("bikes available")) {
+                splitter = " bikes available";
+            } else {
+                splitter = " spaces available";
+            }
+
+            int totalSpaces = Integer.parseInt(item.getSnippet().split(splitter)[0].split(" out of ")[1]);
+            String snippet = item.getSnippet();
+            int availableBikes;
+            int availableSpaces;
+
+            if (splitter.equals(" bikes available")) {
+                availableBikes = Integer.parseInt(snippet.split(" out of ")[0]);
+                availableSpaces = totalSpaces - availableBikes;
+            } else {
+                availableSpaces = Integer.parseInt(snippet.split(" out of ")[0]);
+                availableBikes = totalSpaces - availableSpaces;
+            }
+
+            String stationType;
+
+            if (item.isStartStation()) {
+                stationType = "bikes";
+            } else if (item.isEndStation()) {
+                stationType = "bikestands";
+            } else {
+                stationType = checkClusterType();
+            }
+
+            markerOptions.icon(BitmapDescriptorFactory.fromResource(getResourceForStation(availableBikes, availableSpaces, stationType)));
+
+            super.onBeforeClusterItemRendered(item, markerOptions);
+        }
     }
 }
