@@ -1,6 +1,4 @@
 import os
-import shutil
-from os import path
 from os import listdir
 from os.path import isfile, join
 
