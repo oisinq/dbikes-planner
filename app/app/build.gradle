@@ -34,4 +34,5 @@ dependencies {
     implementation 'com.google.android.material:material:1.2.0-alpha05'
     implementation 'androidx.recyclerview:recyclerview:1.1.0'
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+    implementation 'info.hoang8f:android-segmented:1.0.6'
 }

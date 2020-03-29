@@ -14,6 +14,8 @@ import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -61,6 +63,7 @@ import com.google.android.libraries.places.widget.listener.PlaceSelectionListene
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.maps.android.MarkerManager;
 import com.google.maps.android.clustering.ClusterItem;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
@@ -103,6 +106,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private GoogleMap mMap;
     private StreetViewPanorama mStreetViewPanorama;
     private ClusterManager<StationClusterItem> mClusterManager;
+    private Marker selectedStation;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private RequestQueue queue;
     private Map<String, StationClusterItem> clusterItems = new HashMap<>();
@@ -130,28 +134,49 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setUpAutocomplete();
         setUpBottomSheet();
 
-        pingRoutingServer();
-    }
-
-    private void pingRoutingServer() {
-        String url ="https://oisin-flask-test.herokuapp.com/";
-
-        // Request a string response from the provided URL.
-        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
-                new Response.Listener<String>() {
-                    @Override
-                    public void onResponse(String response) {
-                        // Display the first 500 characters of the response string.
-                        Log.d("RouteActivity", "ping:  " + response);
-                    }
-                }, new Response.ErrorListener() {
+        RadioGroup group = findViewById(R.id.station_type_segment_group);
+        group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
-            public void onErrorResponse(VolleyError error) {
-                Log.e("RouteActivity", "error with ping");
+            public void onCheckedChanged(RadioGroup radioGroup, int i) {
+                MarkerManager.Collection markerCollection = mClusterManager.getMarkerCollection();
+
+                for (Marker m : markerCollection.getMarkers()) {
+                    if (m.getSnippet().contains("bikes available")) {
+                        updateMarkerSnippet(m);
+                    } else {
+                        updateMarkerSnippet(m);
+                    }
+                }
+
+                if (selectedStation != null) {
+                    TextView text = findViewById(R.id.bottom_sheet_byline);
+                    text.setText(selectedStation.getSnippet());
+                }
+
+                mClusterManager.cluster();
             }
         });
+    }
 
-        queue.add(stringRequest);
+    private void updateMarkerSnippet(Marker marker) {
+        String splitter = marker.getSnippet().contains("bikes available") ? " bikes available" : " spaces available";
+
+        String snippet = marker.getSnippet().split(splitter)[0];
+        int totalSpaces = Integer.parseInt(snippet.split(" out of ")[1]);
+
+        int availableBikes;
+        int availableSpaces;
+
+        if (splitter.equals(" bikes available")) {
+            availableBikes = Integer.parseInt(snippet.split(" out of ")[0]);
+            availableSpaces = totalSpaces - availableBikes;
+        } else {
+            availableSpaces = Integer.parseInt(snippet.split(" out of ")[0]);
+            availableBikes = totalSpaces - availableSpaces;
+        }
+
+        marker.setIcon(BitmapDescriptorFactory.fromResource(getResourceForStation(availableBikes, availableSpaces, checkClusterType())));
+        marker.setSnippet(generateMarkerSnippet(availableBikes, totalSpaces));
     }
 
     private void setUpGraph() {
@@ -318,7 +343,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 String end = place.getLatLng().latitude + "," + place.getLatLng().longitude;
 
-                String url = "https://oisin-flask-test.herokuapp.com/?start="+ start + "&end="+end;
+                String url = "https://dbikes-planner.herokuapp.com/route?start="+ start + "&end="
+                        + end + "&minutes=0";
 
                 StringRequest stringRequest = getRouteRequest(url);
 
@@ -646,6 +672,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return line.pattern(pattern).jointType(JointType.ROUND).endCap(new RoundCap()).startCap(new RoundCap()).color(Color.rgb(134, 122, 214));
     }
 
+    private String checkClusterType() {
+        RadioButton bikesButton = findViewById(R.id.bikes_radio_button);
+
+        if (bikesButton.isChecked()) {
+            return "bikes";
+        } else {
+            return "bikestands";
+        }
+    }
+
     private class StationRenderer extends DefaultClusterRenderer {
 
         public StationRenderer() {
@@ -654,37 +690,80 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         @Override
         protected void onBeforeClusterItemRendered(ClusterItem item, MarkerOptions markerOptions) {
-            int availableBikes = Integer.parseInt(item.getSnippet().split(" bikes available")[0].split(" out of ")[0]);
+            String splitter;
+            if (item.getSnippet().contains("bikes available")) {
+                splitter = " bikes available";
+            } else {
+                splitter = " spaces available";
+            }
 
-            markerOptions.icon(BitmapDescriptorFactory.fromResource(getResourceForStation(availableBikes)));
+            int totalSpaces = Integer.parseInt(item.getSnippet().split(splitter)[0].split(" out of ")[1]);
+            String snippet = item.getSnippet();
+            int availableBikes;
+            int availableSpaces;
+
+            if (splitter.equals(" bikes available")) {
+                availableBikes = Integer.parseInt(snippet.split(" out of ")[0]);
+                availableSpaces = totalSpaces - availableBikes;
+            } else {
+                availableSpaces = Integer.parseInt(snippet.split(" out of ")[0]);
+                availableBikes = totalSpaces - availableSpaces;
+            }
+
+            markerOptions.icon(BitmapDescriptorFactory.fromResource(getResourceForStation(availableBikes, availableSpaces, checkClusterType())));
 
             super.onBeforeClusterItemRendered(item, markerOptions);
         }
     }
 
-    private int getResourceForStation(int availableBikes) {
+    private int getResourceForStation(int availableBikes, int availableSpaces, String stationType) {
 
-        switch (availableBikes) {
-            case 0:
-                return R.drawable.zero_bikes_medium;
-            case 1:
-                return R.drawable.one_bike_medium;
-            case 2:
-                return R.drawable.two_bikes_medium;
-            case 3:
-                return R.drawable.three_bikes_medium;
-            case 4:
-                return R.drawable.four_bikes_medium;
-            case 5:
-                return R.drawable.five_bikes_medium;
-            case 6:
-                return R.drawable.six_bikes_medium;
-            case 7:
-                return R.drawable.seven_bikes_medium;
-            case 8:
-                return R.drawable.eight_bikes_medium;
-            default:
-                return R.drawable.nine_plus_bikes_medium;
+        if (stationType.equals("bikes")) {
+            switch (availableBikes) {
+                case 0:
+                    return R.drawable.zero_bikes_medium;
+                case 1:
+                    return R.drawable.one_bike_medium;
+                case 2:
+                    return R.drawable.two_bikes_medium;
+                case 3:
+                    return R.drawable.three_bikes_medium;
+                case 4:
+                    return R.drawable.four_bikes_medium;
+                case 5:
+                    return R.drawable.five_bikes_medium;
+                case 6:
+                    return R.drawable.six_bikes_medium;
+                case 7:
+                    return R.drawable.seven_bikes_medium;
+                case 8:
+                    return R.drawable.eight_bikes_medium;
+                default:
+                    return R.drawable.nine_plus_bikes_medium;
+            }
+        } else {
+            switch (availableSpaces) {
+                case 0:
+                    return R.drawable.zero_bikestands_marker;
+                case 1:
+                    return R.drawable.one_bikestand_marker;
+                case 2:
+                    return R.drawable.two_bikestands_marker;
+                case 3:
+                    return R.drawable.three_bikestands_marker;
+                case 4:
+                    return R.drawable.four_bikestands_marker;
+                case 5:
+                    return R.drawable.five_bikestands_marker;
+                case 6:
+                    return R.drawable.six_bikestands_marker;
+                case 7:
+                    return R.drawable.seven_bikestands_marker;
+                case 8:
+                    return R.drawable.eight_bikestands_marker;
+                default:
+                    return R.drawable.nine_plus_bikestands_marker;
+            }
         }
     }
 
@@ -722,7 +801,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 StationClusterItem stationClusterItem = new StationClusterItem(station.getJSONObject("position").getDouble("lat"),
                                         station.getJSONObject("position").getDouble("lng"),
                                         station.getString("address"),
-                                        station.getInt("available_bikes") + " out of " + station.getInt("bike_stands") + " bikes available");
+                                        generateMarkerSnippet(station.getInt("available_bikes"),
+                                                station.getInt("bike_stands")));
 
                                 items.add(stationClusterItem);
                                 clusterItems.put(stationClusterItem.getTitle(), stationClusterItem);
@@ -741,6 +821,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
 
         queue.add(stringRequest);
+    }
+
+    private String generateMarkerSnippet(int availableBikes, int totalBikeStands) {
+        if (checkClusterType().equals("bikes")) {
+            return availableBikes + " out of " + totalBikeStands + " bikes available";
+        } else {
+            return (totalBikeStands-availableBikes) + " out of " + totalBikeStands + " spaces available";
+        }
     }
 
     public GoogleMap getMap() {
@@ -810,6 +898,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mStreetViewPanorama.setPosition(marker.getPosition());
 
         bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+
+        selectedStation = marker;
 
         return true;
     }
