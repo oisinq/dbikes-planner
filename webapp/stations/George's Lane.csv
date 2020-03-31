@@ -1,0 +1,2 @@
+available_bikes,available_bike_stands,time_of_day,type_of_day,day_of_year,iso_date,temperature,relative_humidity,vapour_pressure,wind_speed,rain,sunshine,visibility,bike_availability,bike_stand_availability
+4,16,55841,0,256,2016-09-12T15:30:41,19.2,75,16.6,16,0.0,0.1,60000,low,high

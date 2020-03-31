@@ -48,6 +48,7 @@ def get_current_availability(station, request_type):
 
 def find_best_station(location, station_list, station_tree, request_type, minutes):
     closest_start_stations = station_tree.query(location, k=3)
+    print(f"Found {len(closest_start_stations)} stations bruh")
     hierarchy = ['high', 'moderate', 'low', 'very low', 'empty']
 
     best_station = station_list.iloc[closest_start_stations[1][0]]
@@ -118,6 +119,7 @@ def generate_route():
         coordinate_list.append(point)
 
     station_tree = spatial.KDTree(coordinate_list)
+    print(f"We've got {len(station_list)} stations")
 
     start_station = find_best_station(start_location, station_list, station_tree, 'bikes', minutes)
     end_station = find_best_station(end_location, station_list, station_tree, 'bikestands', minutes)

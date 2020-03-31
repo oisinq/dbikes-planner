@@ -173,7 +173,7 @@ def predict_bike_stands_availability():
     if 'minutes' in request.args:
         minutes = int(request.args['minutes'])
     else:
-        return "Error: No minutes field provided. Please specify an id."
+        minutes = 0
 
     if station not in bikes_model.keys():
         return "Error: Invalid station provided. Please specify a valid station name"
