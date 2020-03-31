@@ -37,8 +37,6 @@ station_names = ['Smithfield North', 'Parnell Square North', 'Clonmel Street', '
                  'Heuston Bridge (North)', 'Leinster Street South', 'Blackhall Place']
 
 weather = {}
-bikes_model = {}
-bikestands_model = {}
 
 
 def update_weather():
@@ -70,51 +68,26 @@ def update_bike_data(current_weather):
         update_station_records.update_record(row, current_weather)
 
 
-def fit_model(station_name):
+def get_fitted_model(station_name):
     if "/" in station_name:
         data = pd.read_csv(open(f'stations/Princes Street.csv', 'r'))
     else:
         data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'))
 
-    bikes_model[station_name].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 13])
-    bikestands_model[station_name].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 14])
-    print(f"fitted for {station_name}")
+    models = {'bikes': KNeighborsClassifier(n_neighbors=5, weights='distance'),
+              'bikestands': KNeighborsClassifier(n_neighbors=5, weights='distance')}
 
+    models['bikes'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 13])
+    models['bikestands'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 14])
 
-def refresh_model():
-    for station_name in station_names:
-        fit_model(station_name)
+    return models
 
 
 def refresh_data():
     update_weather()
     update_bike_data(weather)
-    refresh_model()
 
 
-class FetchingThread(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(self)
-
-    def run(self):
-        print("Starting...")
-        while True:
-            refresh_data()
-
-            print("thread: i sleep...")
-            time.sleep(60 * 5)
-
-
-def setup():
-    for station_name in station_names:
-        bikes_model[station_name] = KNeighborsClassifier(n_neighbors=5, weights='distance')
-        bikestands_model[station_name] = KNeighborsClassifier(n_neighbors=5, weights='distance')
-
-
-setup()
-
-# fetching_thread = FetchingThread()
-# fetching_thread.start()
 refresh_data()
 
 scheduler = BackgroundScheduler()
@@ -133,7 +106,7 @@ def predict_bike_availability():
     else:
         return "Error: No minutes field provided. Please specify an id."
 
-    if station not in bikes_model.keys():
+    if station not in station_names:
         return "Error: Invalid station provided. Please specify a valid station name"
 
     current_time = datetime.now()
@@ -143,16 +116,18 @@ def predict_bike_availability():
     type_of_day = 0 if request_time.weekday() < 5 else 10
     day_of_year = request_time.timetuple().tm_yday
 
-    prediction = bikes_model[station].predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
+    model = get_fitted_model(station)['bikes']
+
+    prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
                                                 weather['humidity'], weather['wind_speed'], weather['rain'],
                                                 weather['visibility']]])
 
-    prediction_probs = bikes_model[station].predict_proba(
+    prediction_probs = model.predict_proba(
         [[time_of_day, type_of_day, day_of_year, weather['temperature'],
           weather['humidity'], weather['wind_speed'], weather['rain'],
           weather['visibility']]])
 
-    classes = bikes_model[station].classes_
+    classes = model.classes_
     probs = {}
 
     for index, label in enumerate(classes):
@@ -175,7 +150,7 @@ def predict_bike_stands_availability():
     else:
         minutes = 0
 
-    if station not in bikes_model.keys():
+    if station not in station_names:
         return "Error: Invalid station provided. Please specify a valid station name"
 
     current_time = datetime.now()
@@ -185,16 +160,18 @@ def predict_bike_stands_availability():
     type_of_day = 0 if request_time.weekday() < 5 else 10
     day_of_year = request_time.timetuple().tm_yday
 
-    prediction = bikes_model[station].predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
+    model = get_fitted_model(station)['bikestands']
+
+    prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
                                                 weather['humidity'], weather['wind_speed'], weather['rain'],
                                                 weather['visibility']]])
 
-    prediction_probs = bikes_model[station].predict_proba(
+    prediction_probs = model.predict_proba(
         [[time_of_day, type_of_day, day_of_year, weather['temperature'],
           weather['humidity'], weather['wind_speed'], weather['rain'],
           weather['visibility']]])
 
-    classes = bikes_model[station].classes_
+    classes = model.classes_
     probs = {}
 
     for index, label in enumerate(classes):
