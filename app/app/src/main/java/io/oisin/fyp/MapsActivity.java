@@ -71,11 +71,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -87,7 +82,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -131,7 +125,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         queue = Volley.newRequestQueue(this);
 
         setUpMapUI();
-        setUpGraph();
         setUpAutocomplete();
         setUpBottomSheet();
 
@@ -159,6 +152,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
+    private int getMarkerTotalSpaces(Marker marker) {
+        String splitter = marker.getSnippet().contains("bikes available") ? " bikes available" : " spaces available";
+        String snippet = marker.getSnippet().split(splitter)[0];
+        return Integer.parseInt(snippet.split(" out of ")[1]);
+    }
+
     private void updateMarkerSnippet(Marker marker) {
         String splitter = marker.getSnippet().contains("bikes available") ? " bikes available" : " spaces available";
 
@@ -180,9 +179,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         marker.setSnippet(generateMarkerSnippet(availableBikes, totalSpaces));
     }
 
-    private void setUpGraph() {
+    private void clearGraph() {
         LineChart chart = findViewById(R.id.availability_chart);
+        chart.clear();
+    }
+
+    private void setUpGraph(JSONArray points, Marker marker) throws JSONException {
+        LineChart chart = findViewById(R.id.availability_chart);
+
         chart.setBackgroundColor(Color.WHITE);
+        chart.setDescription(null);
 
         XAxis xAxis = chart.getXAxis();
         xAxis.setPosition(XAxis.XAxisPosition.TOP_INSIDE);
@@ -191,56 +197,42 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         xAxis.setDrawAxisLine(false);
         xAxis.setDrawGridLines(true);
         xAxis.setTextColor(Color.rgb(255, 192, 56));
-        xAxis.setCenterAxisLabels(true);
         xAxis.setGranularity(1f); // one hour
         xAxis.setValueFormatter(new ValueFormatter() {
 
-            private final SimpleDateFormat mFormat = new SimpleDateFormat("HH:mm", Locale.ENGLISH);
+            private final SimpleDateFormat mFormat = new SimpleDateFormat("h aa", Locale.ENGLISH);
 
             @Override
             public String getFormattedValue(float value) {
 
-                long millis = TimeUnit.HOURS.toMillis((long) value);
-                return mFormat.format(new Date((long) value));
+                return mFormat.format(new Date((long)(value*1000)));
             }
         });
+        xAxis.setLabelCount(11, true);
 
-        YAxis leftAxis = chart.getAxisLeft();
-        leftAxis.setPosition(YAxis.YAxisLabelPosition.INSIDE_CHART);
-        leftAxis.setTextColor(ColorTemplate.getHoloBlue());
-        leftAxis.setDrawGridLines(true);
-        leftAxis.setGranularityEnabled(true);
-        leftAxis.setYOffset(-9f);
-        leftAxis.setTextColor(Color.rgb(255, 192, 56));
+        YAxis yAxis = chart.getAxisLeft();
+        yAxis.setPosition(YAxis.YAxisLabelPosition.INSIDE_CHART);
+        yAxis.setTextColor(ColorTemplate.getHoloBlue());
+        yAxis.setDrawGridLines(true);
+        yAxis.setGranularityEnabled(true);
+        yAxis.setYOffset(-9f);
+        yAxis.setTextColor(Color.rgb(255, 192, 56));
+
+        yAxis.setAxisMinimum(0);
+        yAxis.setAxisMaximum(getMarkerTotalSpaces(marker));
 
         YAxis rightAxis = chart.getAxisRight();
         rightAxis.setEnabled(false);
 
         ArrayList<Entry> values = new ArrayList<>();
 
-        InputStream is = getResources().openRawResource(R.raw.bikes);
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(is, Charset.forName("UTF-8")));
-        String line = "";
+        for (int i = 0; i < points.length(); i++) {
+            JSONArray currentPoints = points.getJSONArray(i);
 
-        try {
-            reader.readLine();
-            while ((line = reader.readLine()) != null) {
-                // Split the line into different tokens (using the comma as a separator).
-                String[] tokens = line.split(",");
-
-//                // Read the data and store it in the WellData POJO.
-                DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH);
-                values.add(new Entry((float) dateFormat.parse(tokens[4]).getTime(), Float.parseFloat(tokens[0])));
-
-                //             values.add(new Entry(Float.parseFloat(tokens[1]), Float.parseFloat(tokens[0])));
-            }
-        } catch (Exception e1) {
-            Log.e("MainActivity", "Error" + line, e1);
-            e1.printStackTrace();
+            values.add(new Entry((float) currentPoints.getDouble(0), (float) currentPoints.getDouble(1)));
         }
 
-        LineDataSet set1 = new LineDataSet(values, "Label");
+        LineDataSet set1 = new LineDataSet(values, "Bike availability");
         set1.setAxisDependency(YAxis.AxisDependency.LEFT);
         set1.setColor(ColorTemplate.getHoloBlue());
         set1.setValueTextColor(ColorTemplate.getHoloBlue());
@@ -860,6 +852,33 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public boolean onMarkerClick(final Marker marker) {
         if (marker.getTitle() == null) return false;
+
+        String url = marker.getTitle().contains("/") ? "https://dbikes-planner.herokuapp.com/history/Princes Street" :
+                "https://dbikes-planner.herokuapp.com/history/" + marker.getTitle();
+
+        clearGraph();
+
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        try {
+                            JSONArray graphPoints = new JSONObject(response).getJSONArray("graph");
+
+                            setUpGraph(graphPoints, marker);
+
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+            }
+        });
+
+        queue.add(stringRequest);
 
         findViewById(R.id.route_layout_contents).setVisibility(View.GONE);
         findViewById(R.id.station_layout_contents).setVisibility(View.VISIBLE);

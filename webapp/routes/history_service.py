@@ -36,7 +36,7 @@ station_names = ['Smithfield North', 'Parnell Square North', 'Clonmel Street', '
                  'Upper Sherrard Street', 'Fitzwilliam Square East', 'Grattan Street', 'St James Hospital (Luas)',
                  'Harcourt Terrace', 'Bolton Street', 'Jervis Street', 'Ormond Quay Upper',
                  'Grangegorman Lower (South)', 'Mountjoy Square West', 'Wilton Terrace', 'Emmet Road',
-                 'Heuston Bridge (North)', 'Leinster Street South', 'Blackhall Place']
+                 'Heuston Bridge (North)', 'Leinster Street South', 'Blackhall Place', "Princes Street"]
 
 
 @routes.route('/history/<station_name>', methods=['GET'])
