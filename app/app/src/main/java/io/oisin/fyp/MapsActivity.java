@@ -55,6 +55,7 @@ import com.google.android.gms.maps.model.PatternItem;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.RoundCap;
+import com.google.android.gms.maps.model.StreetViewSource;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.api.model.RectangularBounds;
@@ -897,7 +898,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         CameraUpdate yourLocation = CameraUpdateFactory.newLatLngZoom(marker.getPosition(), mMap.getCameraPosition().zoom);
         mMap.animateCamera(yourLocation, 300, null);
 
-        mStreetViewPanorama.setPosition(marker.getPosition());
+        mStreetViewPanorama.setPosition(marker.getPosition(), StreetViewSource.OUTDOOR);
+        mStreetViewPanorama.setStreetNamesEnabled(false);
+        mStreetViewPanorama.setUserNavigationEnabled(false);
 
         bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
 
