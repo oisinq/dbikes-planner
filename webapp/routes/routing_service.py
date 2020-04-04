@@ -1,15 +1,19 @@
 import pandas as pd
 from . import routes
+from . import knn_availability_service
 import flask
 import geopy.distance
-from flask import request, jsonify
+from flask import request, jsonify, url_for
 from scipy import spatial
 import requests
 
 
 def predict_station(station, minutes, request_type):
-    return requests.get(
-        f"{flask.request.host_url}predict/{request_type}?minutes={minutes}&station={station['address']}")
+    return knn_availability_service.predict_availability(station['address'], minutes, request_type)
+    #print(url)
+    #print(f"{url}?minutes={minutes}&station={station['address']}")
+
+    #return requests.get(f"{url}?minutes={minutes}&station={station['address']}")
 
 
 def get_cycle_streets_url(start, end, plan_type):
@@ -25,6 +29,17 @@ def get_walking_route_url(start, end):
                f"&end={end['lng']},{end['lat']}"
     else:
         return f"https://api.openrouteservice.org/v2/directions/foot-walking?api_key=5b3ce3597851110001cf6248b66c64a" \
+               f"9ecee404f89d0465e2e02f92c&start={start['lng']},{start['lat']}&end={end[1]},{end[0]}"
+
+
+def get_hiking_route_url(start, end):
+    if type(start) is tuple:
+        return f"https://api.openrouteservice.org/v2/directions/foot-hiking?api_key" \
+               f"=5b3ce3597851110001cf6248b66c64a9ecee404f89d0465e2e02f92c" \
+               f"&start={start[1]},{start[0]}" \
+               f"&end={end['lng']},{end['lat']}"
+    else:
+        return f"https://api.openrouteservice.org/v2/directions/foot-hiking?api_key=5b3ce3597851110001cf6248b66c64a" \
                f"9ecee404f89d0465e2e02f92c&start={start['lng']},{start['lat']}&end={end[1]},{end[0]}"
 
 
@@ -64,10 +79,10 @@ def find_best_station(location, station_list, station_tree, request_type, minute
 
         response = predict_station(station_list.iloc[station_index], int(float(minutes) + (distance.m / 84)),
                                    request_type)
-        json = response.json()
-        availability = json['prediction']
+#        json = response.json()
+        availability = response['prediction']
 
-        results.append(json)
+        results.append(response)
         # todo: add a "very high" availability & take it into account if we jump between "very high" and "empty"
         # todo: also look into normalising data
 
@@ -132,7 +147,14 @@ def generate_route():
         get_cycle_streets_url(start_station['position'], end_station['position'], 'shortest'))
 
     start_walking_route_json = requests.get(get_walking_route_url(start_location, start_station['position']))
+
+    if start_walking_route_json.status_code >= 400:
+        start_walking_route_json = requests.get(get_hiking_route_url(start_location, start_station['position']))
+
     end_walking_route_json = requests.get(get_walking_route_url(end_station['position'], end_location))
+
+    if end_walking_route_json.status_code >= 400:
+        end_walking_route_json = requests.get(get_hiking_route_url(end_station['position'], end_location))
 
     return jsonify({"start_walking_route": start_walking_route_json.json(), "shortest_cycle_route":
         shortest_cycle_route_json.json(), "fastest_cycle_route": fastest_cycle_route_json.json(),

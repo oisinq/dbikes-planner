@@ -1,4 +1,8 @@
+import subprocess
+
 import pandas as pd
+from google.cloud import storage, bigquery, bigquery_storage
+import gcsfs
 from datetime import datetime, time
 
 
@@ -39,9 +43,11 @@ def category(quantity):
 def update_record(station, weather):
 
     if "/" in station['address']:
-        f = open(f'stations/Princes Street.csv', 'a')
+        file_path = 'stations/Princes Street.csv'
     else:
-        f = open(f'stations/{station["address"]}.csv', 'a')
+        file_path = f'stations/{station["address"]}.csv'
+
+    f = open(file_path, 'a')
 
     available_bike_stands = station['available_bike_stands']
     available_bikes = station['available_bikes']
@@ -49,7 +55,7 @@ def update_record(station, weather):
 
     entry_datetime = datetime.fromtimestamp(epoch_time / 1000)
 
-    if is_time_between(time(0, 30), time(5, 0), entry_datetime.time()):
+    if is_time_between(time(3, 30), time(5, 0), entry_datetime.time()):
         return
 
     day_type = ''
@@ -60,7 +66,12 @@ def update_record(station, weather):
     else:
         day_type = 10
 
+    last_line = subprocess.check_output(['tail', '-3', file_path]).decode("utf-8")
+
+    if entry_datetime.isoformat() in last_line:
+        return
+
     f.write(f"{available_bikes},{available_bike_stands},{datetime_to_seconds(entry_datetime)},{day_type},"
-            f"{entry_datetime.timetuple().tm_yday},{entry_datetime.isoformat()},{weather['temperature']},{weather['humidity']},"
-            f"null,{weather['wind_speed']},{weather['rain']},null,{weather['visibility']},"
-            f"{category(available_bikes)},{category(available_bike_stands)}\n")
+        f"{entry_datetime.timetuple().tm_yday},{entry_datetime.isoformat()},{weather['temperature']},{weather['humidity']},"
+        f",{weather['wind_speed']},{weather['rain']},,{weather['visibility']},"
+        f"{category(available_bikes)},{category(available_bike_stands)}\n")

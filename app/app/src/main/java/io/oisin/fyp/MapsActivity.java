@@ -335,7 +335,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 String end = place.getLatLng().latitude + "," + place.getLatLng().longitude;
 
-                String url = "https://dbikes-planner.herokuapp.com/route?start=" + start + "&end="
+                String url = "https://dbikes-planner.appspot.com/route?start=" + start + "&end="
                         + end + "&minutes=0";
 
                 StringRequest stringRequest = getRouteRequest(url);
@@ -854,8 +854,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public boolean onMarkerClick(final Marker marker) {
         if (marker.getTitle() == null) return false;
 
-        String url = marker.getTitle().contains("/") ? "https://dbikes-planner.herokuapp.com/history/Princes Street" :
-                "https://dbikes-planner.herokuapp.com/history/" + marker.getTitle();
+        String url = marker.getTitle().contains("/") ? "https://dbikes-planner." +
+                "appspot.com/history/Princes Street" :
+                "https://dbikes-planner.appspot.com/history/" + marker.getTitle();
 
         clearGraph();
 

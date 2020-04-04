@@ -64,14 +64,20 @@ def update_bike_data(current_weather):
     result = pd.read_json(
         "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
 
+
+    print("Refreshing data...")
     for _index, row in result.iterrows():
         update_station_records.update_record(row, current_weather)
+    print("Data refresh complete")
 
 
 def get_fitted_model(station_name):
+    print(f"opening {station_name}")
     if "/" in station_name:
+        # data = pd.read_csv('gs://dbikes-planner.appspot.com/stations/Princes Street.csv')
         data = pd.read_csv(open(f'stations/Princes Street.csv', 'r'))
     else:
+        # data = pd.read_csv(f"gs://dbikes-planner.appspot.com/stations/{station_name}.csv")
         data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'))
 
     models = {'bikes': KNeighborsClassifier(n_neighbors=5, weights='distance'),
@@ -79,6 +85,8 @@ def get_fitted_model(station_name):
 
     models['bikes'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 13])
     models['bikestands'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 14])
+
+    print("Model created!")
 
     return models
 
@@ -94,8 +102,45 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(func=refresh_data, trigger="interval", minutes=5)
 scheduler.start()
 
+
+def predict_availability(station, minutes, type):
+    current_time = datetime.now()
+    request_time = current_time + timedelta(minutes=minutes)
+
+    time_of_day = (request_time.hour * 60 + request_time.minute) * 60 + request_time.second
+    type_of_day = 0 if request_time.weekday() < 5 else 10
+    day_of_year = request_time.timetuple().tm_yday
+
+    if type == 'bikes':
+        model = get_fitted_model(station)['bikes']
+    else:
+        model = get_fitted_model(station)['bikestands']
+
+    prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
+                                 weather['humidity'], weather['wind_speed'], weather['rain'],
+                                 weather['visibility']]])
+
+    print("Prediction made")
+
+    prediction_probs = model.predict_proba(
+        [[time_of_day, type_of_day, day_of_year, weather['temperature'],
+          weather['humidity'], weather['wind_speed'], weather['rain'],
+          weather['visibility']]])
+
+    print("Prediction probs GOT")
+
+    classes = model.classes_
+    probs = {}
+
+    for index, label in enumerate(classes):
+        probs[label] = prediction_probs[0][index]
+
+    return {"prediction": prediction[0], "probabilities": probs}
+
+
 @routes.route('/predict/bikes', methods=['GET'])
-def predict_bike_availability():
+def predict_bike_availability_route():
+    print("predicting availability lets goooo")
     if 'station' in request.args:
         station = request.args['station']
     else:
@@ -109,37 +154,15 @@ def predict_bike_availability():
     if station not in station_names:
         return "Error: Invalid station provided. Please specify a valid station name"
 
-    current_time = datetime.now()
-    request_time = current_time + timedelta(minutes=minutes)
-
-    time_of_day = (request_time.hour * 60 + request_time.minute) * 60 + request_time.second
-    type_of_day = 0 if request_time.weekday() < 5 else 10
-    day_of_year = request_time.timetuple().tm_yday
-
-    model = get_fitted_model(station)['bikes']
-
-    prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
-                                                weather['humidity'], weather['wind_speed'], weather['rain'],
-                                                weather['visibility']]])
-
-    prediction_probs = model.predict_proba(
-        [[time_of_day, type_of_day, day_of_year, weather['temperature'],
-          weather['humidity'], weather['wind_speed'], weather['rain'],
-          weather['visibility']]])
-
-    classes = model.classes_
-    probs = {}
-
-    for index, label in enumerate(classes):
-        probs[label] = prediction_probs[0][index]
-
-    result = {"prediction": prediction[0], "probabilities": probs}
+    result = predict_availability(station, minutes, "bikes")
 
     return json.dumps(result)
 
 
 @routes.route('/predict/bikestands', methods=['GET'])
 def predict_bike_stands_availability():
+    print("predicting availability lets goooo")
+
     if 'station' in request.args:
         station = request.args['station']
     else:
@@ -153,31 +176,7 @@ def predict_bike_stands_availability():
     if station not in station_names:
         return "Error: Invalid station provided. Please specify a valid station name"
 
-    current_time = datetime.now()
-    request_time = current_time + timedelta(minutes=minutes)
-
-    time_of_day = (request_time.hour * 60 + request_time.minute) * 60 + request_time.second
-    type_of_day = 0 if request_time.weekday() < 5 else 10
-    day_of_year = request_time.timetuple().tm_yday
-
-    model = get_fitted_model(station)['bikestands']
-
-    prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
-                                                weather['humidity'], weather['wind_speed'], weather['rain'],
-                                                weather['visibility']]])
-
-    prediction_probs = model.predict_proba(
-        [[time_of_day, type_of_day, day_of_year, weather['temperature'],
-          weather['humidity'], weather['wind_speed'], weather['rain'],
-          weather['visibility']]])
-
-    classes = model.classes_
-    probs = {}
-
-    for index, label in enumerate(classes):
-        probs[label] = prediction_probs[0][index]
-
-    result = {"prediction": prediction[0], "probabilities": probs}
+    result = predict_availability(station, minutes, 'bikestands')
 
     return json.dumps(result)
 

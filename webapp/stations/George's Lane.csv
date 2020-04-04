@@ -1,2 +1,7 @@
 available_bikes,available_bike_stands,time_of_day,type_of_day,day_of_year,iso_date,temperature,relative_humidity,vapour_pressure,wind_speed,rain,sunshine,visibility,bike_availability,bike_stand_availability
 4,16,55841,0,256,2016-09-12T15:30:41,19.2,75,16.6,16,0.0,0.1,60000,low,high
+5,35,8611,10,95,2020-04-04T02:23:31,7.67,81,,2.6,0.0,,10000,moderate,high
+5,35,9219,10,95,2020-04-04T02:33:39,7.53,81,,2.1,0.0,,10000,moderate,high
+5,35,9828,10,95,2020-04-04T02:43:48,7.53,81,,2.1,0.0,,10000,moderate,high
+5,35,10436,10,95,2020-04-04T02:53:56,7.53,81,,2.1,0.0,,10000,moderate,high
+5,35,11044,10,95,2020-04-04T03:04:04,7.52,81,,2.1,0.0,,10000,moderate,high
