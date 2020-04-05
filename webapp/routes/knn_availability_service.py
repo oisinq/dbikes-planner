@@ -83,8 +83,8 @@ def get_fitted_model(station_name):
     models = {'bikes': KNeighborsClassifier(n_neighbors=5, weights='distance'),
               'bikestands': KNeighborsClassifier(n_neighbors=5, weights='distance')}
 
-    models['bikes'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 13])
-    models['bikestands'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12]], data.iloc[:, 14])
+    models['bikes'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 13])
+    models['bikestands'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 14])
 
     print("Model created!")
 
@@ -118,14 +118,14 @@ def predict_availability(station, minutes, type):
 
     prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
                                  weather['humidity'], weather['wind_speed'], weather['rain'],
-                                 weather['visibility']]])
+                                 weather['visibility'], current_time.timestamp()]])
 
     print("Prediction made")
 
     prediction_probs = model.predict_proba(
         [[time_of_day, type_of_day, day_of_year, weather['temperature'],
           weather['humidity'], weather['wind_speed'], weather['rain'],
-          weather['visibility']]])
+          weather['visibility'], current_time.timestamp()]])
 
     print("Prediction probs GOT")
 

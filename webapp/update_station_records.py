@@ -74,4 +74,4 @@ def update_record(station, weather):
     f.write(f"{available_bikes},{available_bike_stands},{datetime_to_seconds(entry_datetime)},{day_type},"
         f"{entry_datetime.timetuple().tm_yday},{entry_datetime.isoformat()},{weather['temperature']},{weather['humidity']},"
         f",{weather['wind_speed']},{weather['rain']},,{weather['visibility']},"
-        f"{category(available_bikes)},{category(available_bike_stands)}\n")
+        f"{category(available_bikes)},{category(available_bike_stands)},{int(epoch_time / 1000)}\n")
