@@ -12,12 +12,6 @@ public class StationClusterItem implements ClusterItem {
     private int availableBikes;
     private int totalSpaces;
 
-    public StationClusterItem(double lat, double lng) {
-        mPosition = new LatLng(lat, lng);
-        mTitle = null;
-        mSnippet = null;
-    }
-
     public StationClusterItem(double lat, double lng, String title, String snippet, int availableBikes, int totalSpaces) {
         mPosition = new LatLng(lat, lng);
         mTitle = title;

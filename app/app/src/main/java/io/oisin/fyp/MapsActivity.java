@@ -1,6 +1,7 @@
 package io.oisin.fyp;
 
 import android.Manifest;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -10,14 +11,19 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -84,11 +90,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.fragment.app.FragmentActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import info.hoang8f.android.segmented.SegmentedGroup;
 import io.oisin.fyp.model.Direction;
 import io.oisin.fyp.model.RouteType;
@@ -128,7 +129,43 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setUpMapUI();
         setUpAutocomplete();
         setUpBottomSheet();
+        setUpStationTypeButtons();
+    }
 
+    @Override
+    public void onMapReady(final GoogleMap map) {
+        map.setOnMarkerClickListener(this);
+
+        mMap = map;
+
+        mClusterManager = new ClusterManager<>(this, map);
+        mClusterManager.setRenderer(new StationRenderer());
+        map.setOnCameraIdleListener(mClusterManager);
+
+        map.setMapStyle(new MapStyleOptions(getResources()
+                .getString(R.string.map_style)));
+
+        displayBikeStations();
+
+        //todo: Move the camera view to O'Connell St – this should go to the user's location instead
+        LatLng dublin = new LatLng(53.3498, -6.2603);
+        map.moveCamera(CameraUpdateFactory.zoomTo(16f));
+        map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
+
+        enableMyLocation();
+    }
+
+    private void setUpMapUI() {
+        Button refreshButton = findViewById(R.id.refresh_icon);
+        refreshButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                displayBikeStations();
+            }
+        });
+    }
+
+    private void setUpStationTypeButtons() {
         RadioGroup group = findViewById(R.id.station_type_segment_group);
         group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
@@ -153,123 +190,57 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    private int getMarkerTotalSpaces(Marker marker) {
-        String splitter = marker.getSnippet().contains("bikes available") ? " bikes available" : " spaces available";
-        String snippet = marker.getSnippet().split(splitter)[0];
-        return Integer.parseInt(snippet.split(" out of ")[1]);
-    }
-
     private void updateMarkerSnippet(Marker marker) {
-        String splitter = marker.getSnippet().contains("bikes available") ? " bikes available" : " spaces available";
+        int totalSpaces = getTotalSpacesForMarker(marker);
+        int availableBikes = getAvailableBikesForMarker(marker);
+        int availableSpaces = getAvailableSpacesForMarker(marker);
 
-        String snippet = marker.getSnippet().split(splitter)[0];
-        int totalSpaces = Integer.parseInt(snippet.split(" out of ")[1]);
-
-        int availableBikes;
-        int availableSpaces;
-
-        if (splitter.equals(" bikes available")) {
-            availableBikes = Integer.parseInt(snippet.split(" out of ")[0]);
-            availableSpaces = totalSpaces - availableBikes;
-        } else {
-            availableSpaces = Integer.parseInt(snippet.split(" out of ")[0]);
-            availableBikes = totalSpaces - availableSpaces;
-        }
-
-        marker.setIcon(BitmapDescriptorFactory.fromResource(getResourceForStation(availableBikes, availableSpaces, checkClusterType())));
+        marker.setIcon(BitmapDescriptorFactory.fromResource(getIconResourceForStation(availableBikes, availableSpaces, checkClusterType())));
         marker.setSnippet(generateMarkerSnippet(availableBikes, totalSpaces));
     }
 
-    private void clearGraph() {
-        LineChart chart = findViewById(R.id.availability_chart);
-        chart.clear();
-    }
+    private int getAvailableBikesForMarker(Marker marker) {
+        String snippet = getStationStatus(marker);
 
-    private void setUpGraph(JSONArray points, Marker marker) throws JSONException {
-        LineChart chart = findViewById(R.id.availability_chart);
+        if (marker.getSnippet().contains(" bikes available")) {
+            return Integer.parseInt(snippet.split(" out of ")[0]);
+        } else {
+            int totalSpaces = Integer.parseInt(snippet.split(" out of ")[1]);
+            int availableSpaces = Integer.parseInt(snippet.split(" out of ")[0]);
 
-        chart.setBackgroundColor(Color.WHITE);
-        chart.setDescription(null);
-
-        XAxis xAxis = chart.getXAxis();
-        xAxis.setPosition(XAxis.XAxisPosition.TOP_INSIDE);
-        xAxis.setTextSize(10f);
-        xAxis.setTextColor(Color.WHITE);
-        xAxis.setDrawAxisLine(false);
-        xAxis.setDrawGridLines(true);
-        xAxis.setTextColor(Color.rgb(255, 192, 56));
-        xAxis.setGranularity(1f); // one hour
-        xAxis.setValueFormatter(new ValueFormatter() {
-
-            private final SimpleDateFormat mFormat = new SimpleDateFormat("h aa", Locale.ENGLISH);
-
-            @Override
-            public String getFormattedValue(float value) {
-
-                return mFormat.format(new Date((long)(value*1000)));
-            }
-        });
-        xAxis.setLabelCount(11, true);
-
-        YAxis yAxis = chart.getAxisLeft();
-        yAxis.setPosition(YAxis.YAxisLabelPosition.INSIDE_CHART);
-        yAxis.setTextColor(ColorTemplate.getHoloBlue());
-        yAxis.setDrawGridLines(true);
-        yAxis.setGranularityEnabled(true);
-        yAxis.setYOffset(-9f);
-        yAxis.setTextColor(Color.rgb(255, 192, 56));
-
-        yAxis.setAxisMinimum(0);
-        yAxis.setAxisMaximum(getMarkerTotalSpaces(marker));
-
-        YAxis rightAxis = chart.getAxisRight();
-        rightAxis.setEnabled(false);
-
-        ArrayList<Entry> values = new ArrayList<>();
-
-        for (int i = 0; i < points.length(); i++) {
-            JSONArray currentPoints = points.getJSONArray(i);
-
-            values.add(new Entry((float) currentPoints.getDouble(0), (float) currentPoints.getDouble(1)));
+            return totalSpaces - availableSpaces;
         }
-
-        LineDataSet set1 = new LineDataSet(values, "Bike availability");
-        set1.setAxisDependency(YAxis.AxisDependency.LEFT);
-        set1.setColor(ColorTemplate.getHoloBlue());
-        set1.setValueTextColor(ColorTemplate.getHoloBlue());
-        set1.setLineWidth(1.5f);
-        set1.setDrawCircles(false);
-        set1.setDrawValues(false);
-        set1.setFillAlpha(65);
-        set1.setFillColor(ColorTemplate.getHoloBlue());
-        set1.setHighLightColor(Color.rgb(244, 117, 117));
-        set1.setDrawCircleHole(false);
-        set1.setMode(LineDataSet.Mode.CUBIC_BEZIER);
-
-        LineData lineData = new LineData(set1);
-        chart.setData(lineData);
-        chart.invalidate();
     }
 
-    private void setUpMapUI() {
-        Button refreshButton = findViewById(R.id.refresh_icon);
-        refreshButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                displayBikeStations();
-            }
-        });
+    private int getAvailableSpacesForMarker(Marker marker) {
+        String stationStatus = getStationStatus(marker);
+
+        if (marker.getSnippet().contains(" bikes available")) {
+            int totalSpaces = Integer.parseInt(stationStatus.split(" out of ")[1]);
+
+            int availableBikes = Integer.parseInt(stationStatus.split(" out of ")[0]);
+            return totalSpaces - availableBikes;
+        } else {
+            return Integer.parseInt(stationStatus.split(" out of ")[0]);
+        }
     }
 
-    private void hideBottomSheetById(int id) {
-        View bottomSheet = findViewById(R.id.route_bottom_sheet);
-        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+    private int getTotalSpacesForMarker(Marker marker) {
+        String stationStatus = getStationStatus(marker);
+        return Integer.parseInt(stationStatus.split(" out of ")[1]);
+    }
+
+    /*
+    This method takes a marker and returns a string representation of the status of a station
+    For example, if a marker has 5 bikes out of 20 available, it returns "5 out of 20"
+     */
+    private String getStationStatus(Marker marker) {
+        String splitter = marker.getSnippet().contains("bikes available") ? " bikes available" : " spaces available";
+        return marker.getSnippet().split(splitter)[0];
     }
 
     private void setUpBottomSheet() {
-        //hideBottomSheetById(R.id.station_bottom_sheet);
-        hideBottomSheetById(R.id.route_bottom_sheet);
+        hideBottomSheet();
 
         SupportStreetViewPanoramaFragment streetViewPanoramaFragment =
                 (SupportStreetViewPanoramaFragment)
@@ -283,18 +254,72 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 });
     }
 
+    private void hideBottomSheet() {
+        View bottomSheet = findViewById(R.id.route_bottom_sheet);
+        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+    }
+
+    private void hideFloatingActionButton() {
+        FloatingActionButton fab = findViewById(R.id.navigation_fab);
+        fab.setVisibility(View.INVISIBLE);
+    }
+
+    private void setLoadingShimVisibibility(int visibility) {
+        RelativeLayout shim = findViewById(R.id.route_loading_shim);
+        shim.setVisibility(visibility);
+    }
+
+    private void setBlankShimVisibibility(int visibility) {
+        RelativeLayout shim = findViewById(R.id.blank_loading_shim);
+        shim.setVisibility(visibility);
+    }
+
+    private void showMinutesDialog(final Place place) {
+        final Dialog addDataAlert = new Dialog(MapsActivity.this);
+
+        addDataAlert.setContentView(R.layout.journey_time_dialog);
+        final EditText inputField = addDataAlert.findViewById(R.id.dataInputField);
+        final Button submitButton = addDataAlert.findViewById(R.id.submitButton);
+        final Button cancelButton = addDataAlert.findViewById(R.id.cancelButton);
+
+        submitButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (inputField.getText().length() == 0) {
+                    Toast.makeText(MapsActivity.this, "Input can not be empty", Toast.LENGTH_SHORT).show();
+                }
+
+                Log.e("grandad", "onClick: it worked lol");
+                addDataAlert.dismiss();
+                int minutes = Integer.parseInt(inputField.getText().toString());
+
+                setBlankShimVisibibility(View.GONE);
+                showRoute(place, minutes);
+            }
+        });
+        cancelButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                addDataAlert.cancel();
+                setBlankShimVisibibility(View.GONE);
+            }
+        });
+
+        addDataAlert.show();
+    }
+
     private void setUpAutocomplete() {
         if (!Places.isInitialized()) {
-            Places.initialize(getApplicationContext(), getString(R.string.google_maps_key), Locale.US);
+            Places.initialize(getApplicationContext(), getString(R.string.google_maps_key), Locale.ENGLISH);
         }
 
-        // Initialize the AutocompleteSupportFragment.
         AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment)
                 getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
 
-        // Specify the types of place data to return.
         autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG));
 
+        // Set the bounds of autocomplete to be Dublin city
         RectangularBounds bounds = RectangularBounds.newInstance(
                 new LatLng(53.236989, -6.486053),
                 new LatLng(53.445249, -6.016388));
@@ -303,54 +328,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
-                RelativeLayout shim = findViewById(R.id.route_loading_shim);
-                shim.setVisibility(View.VISIBLE);
+                setBlankShimVisibibility(View.VISIBLE);
+                hideBottomSheet();
 
-                LatLng dublin = new LatLng(53.3499, -6.2603);
-                hideBottomSheetById(0);
-
-                setUpRouteUI();
-
-                mMap.animateCamera(CameraUpdateFactory.newLatLng(dublin));
-                mMap.animateCamera(CameraUpdateFactory.zoomTo(13f));
-                mClusterManager.clearItems();
-
-
-                LocationManager locationManager = (LocationManager)
-                        getSystemService(Context.LOCATION_SERVICE);
-                Criteria criteria = new Criteria();
-
-                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    Log.e("MapsActivity", "oof");
-                }
-
-                Location location = locationManager.getLastKnownLocation(Objects.requireNonNull(locationManager
-                        .getBestProvider(criteria, false)));
-
-                routeMarkers.add(mMap.addMarker(new MarkerOptions().position(new LatLng(53.330667, -6.258590))));
-                routeMarkers.add(mMap.addMarker(new MarkerOptions().position(place.getLatLng())));
-
-                String start = "53.330667,-6.258590";
-                // String start = + location.getLatitude() + "," + location.getLongitude();
-
-                String end = place.getLatLng().latitude + "," + place.getLatLng().longitude;
-
-                String url = "https://dbikes-planner.appspot.com/route?start=" + start + "&end="
-                        + end + "&minutes=0";
-
-                StringRequest stringRequest = getRouteRequest(url);
-
-                queue.add(stringRequest);
-
-                SegmentedGroup group = findViewById(R.id.station_type_segment_group);
-                group.setVisibility(View.INVISIBLE);
-
-                setUpJourneyTypeChips();
+                showMinutesDialog(place);
             }
 
             @Override
             public void onError(Status status) {
-                // TODO: Handle the error.
                 Log.i(".MapsActivity", "An error occurred: " + status);
             }
         });
@@ -363,6 +348,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 deleteRoute();
 
+                hideBottomSheet();
+                hideFloatingActionButton();
+
                 SegmentedGroup group = findViewById(R.id.station_type_segment_group);
                 group.setVisibility(View.VISIBLE);
 
@@ -373,23 +361,45 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    private void setUpRouteUI() {
-        final View routeBottomSheet = findViewById(R.id.route_bottom_sheet);
-        final BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(routeBottomSheet);
+    private void showRoute(Place place, int minutes) {
+        setLoadingShimVisibibility(View.VISIBLE);
+        LatLng dublin = new LatLng(53.3499, -6.2603);
 
-        bottomSheetBehavior.setDraggable(false);
-        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+        mMap.animateCamera(CameraUpdateFactory.newLatLng(dublin));
+        mMap.animateCamera(CameraUpdateFactory.zoomTo(13f));
+        mClusterManager.clearItems();
 
-        routeBottomSheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                LinearLayout layout = findViewById(R.id.route_bottom_sheet);
+        LocationManager locationManager = (LocationManager)
+                getSystemService(Context.LOCATION_SERVICE);
+        Criteria criteria = new Criteria();
 
-//                layout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-//                View hidden = layout.getChildAt(2);
-//                bottomSheetBehavior.setPeekHeight(hidden.getBottom());
-            }
-        });
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.e("MapsActivity", "Location services must be activated.");
+        }
+
+        routeMarkers.add(mMap.addMarker(new MarkerOptions().position(new LatLng(53.330667, -6.258590))));
+        routeMarkers.add(mMap.addMarker(new MarkerOptions().position(place.getLatLng())));
+
+        String start = "53.330667,-6.258590";
+
+        Location location = locationManager.getLastKnownLocation(Objects.requireNonNull(locationManager
+                .getBestProvider(criteria, false)));
+        //todo: This settings lets us use our real location. Not currently being used.
+        // String start = + location.getLatitude() + "," + location.getLongitude();
+
+        String end = place.getLatLng().latitude + "," + place.getLatLng().longitude;
+
+        String url = "https://dbikes-planner.appspot.com/route?start=" + start + "&end="
+                + end + "&minutes=" + minutes;
+
+        StringRequest stringRequest = getRouteRequest(url);
+
+        queue.add(stringRequest);
+
+        SegmentedGroup group = findViewById(R.id.station_type_segment_group);
+        group.setVisibility(View.INVISIBLE);
+
+        setUpJourneyTypeChips();
     }
 
     private void setUpJourneyTypeChips() {
@@ -400,16 +410,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(View view) {
                 hideAllCycleRouteLines();
 
-                if (!routeLines.contains(fastestCycleRouteType.getPolyline())) {
-                    setJourneyTitleText(fastestCycleRouteType);
-                    setJourneySubtitleText(fastestCycleRouteType);
-
-                    fastestCycleRouteType.getPolyline().setVisible(true);
-                    routeLines.add(fastestCycleRouteType.getPolyline());
-
-                    DirectionsAdapter adapter = new DirectionsAdapter(fastestCycleRouteType.getDirections());
-                    recyclerView.setAdapter(adapter);
-                }
+                updateUIForRouteType(fastestCycleRouteType);
             }
         });
 
@@ -420,16 +421,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(View view) {
                 hideAllCycleRouteLines();
 
-                if (!routeLines.contains(quietestCycleRouteType.getPolyline())) {
-                    setJourneyTitleText(quietestCycleRouteType);
-                    setJourneySubtitleText(quietestCycleRouteType);
-
-                    quietestCycleRouteType.getPolyline().setVisible(true);
-                    routeLines.add(quietestCycleRouteType.getPolyline());
-
-                    DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections());
-                    recyclerView.setAdapter(adapter);
-                }
+                updateUIForRouteType(quietestCycleRouteType);
             }
         });
 
@@ -440,21 +432,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(View view) {
                 hideAllCycleRouteLines();
 
-                if (!routeLines.contains(shortestCycleRouteType.getPolyline())) {
-                    setJourneyTitleText(shortestCycleRouteType);
-                    setJourneySubtitleText(shortestCycleRouteType);
-
-                    shortestCycleRouteType.getPolyline().setVisible(true);
-                    routeLines.add(shortestCycleRouteType.getPolyline());
-
-                    DirectionsAdapter adapter = new DirectionsAdapter(shortestCycleRouteType.getDirections());
-                    recyclerView.setAdapter(adapter);
-                }
+                updateUIForRouteType(shortestCycleRouteType);
             }
         });
     }
 
-    //todo: these times don't take into account the walking distance! That's not good!
+    private void updateUIForRouteType(RouteType routeType) {
+        if (!routeLines.contains(routeType.getPolyline())) {
+            setJourneyTitleText(routeType);
+            setJourneySubtitleText(routeType);
+
+            routeType.getPolyline().setVisible(true);
+            routeLines.add(routeType.getPolyline());
+
+            DirectionsAdapter adapter = new DirectionsAdapter(routeType.getDirections());
+            recyclerView.setAdapter(adapter);
+        }
+    }
+
+    //todo: These times don't take into account the walking distance currently.
     private void setJourneyTitleText(RouteType routeType) {
         TextView titleText = findViewById(R.id.route_bottom_sheet_title);
 
@@ -486,11 +482,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mClusterManager.addItems(clusterItems.values());
         mClusterManager.cluster();
-
-
-        hideBottomSheetById(R.id.route_bottom_sheet);
-        FloatingActionButton fab = findViewById(R.id.navigation_fab);
-        fab.setVisibility(View.INVISIBLE);
     }
 
     private void hideAllCycleRouteLines() {
@@ -515,73 +506,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                             JSONObject route = new JSONObject(response);
 
-                            JSONObject quietestCycleRoute = route.getJSONObject("quietest_cycle_route");
-                            JSONObject fastestCycleRoute = route.getJSONObject("fastest_cycle_route");
-                            JSONObject shortestCycleRoute = route.getJSONObject("shortest_cycle_route");
-                            JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
-                            JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
+                            parseRoute(route);
 
-                            String startStationName = route.getString("start_station");
-                            String endStationName = route.getString("end_station");
-
-                            quietestCycleRouteType = extractRouteType(quietestCycleRoute, startStationName, endStationName);
-                            fastestCycleRouteType = extractRouteType(fastestCycleRoute, startStationName, endStationName);
-                            shortestCycleRouteType = extractRouteType(shortestCycleRoute, startStationName, endStationName);
-
-                            quietestCycleRouteType.getPolyline().setVisible(true);
-
-                            routeLines.add(quietestCycleRouteType.getPolyline());
-                            routeLines.add(mMap.addPolyline(getWalkingRoute(startWalkingRoute)));
-                            routeLines.add(mMap.addPolyline(getWalkingRoute(endWalkingRoute)));
-
-                            RelativeLayout shim = findViewById(R.id.route_loading_shim);
-                            shim.setVisibility(View.GONE);
-
-                            StationClusterItem startStation = clusterItems.get(route.getString("start_station"));
-                            startStation.setStartStation(true);
-                            StationClusterItem endStation = clusterItems.get(route.getString("end_station"));
-                            endStation.setEndStation(true);
-                            endStation.setSnippet((endStation.getTotalSpaces() - endStation.getAvailableBikes()) + " out of " + endStation.getTotalSpaces() + " spaces available");
-                            mRouteEndStation = endStation;
-                            mClusterManager.addItem(startStation);
-                            mClusterManager.addItem(endStation);
-
-                            setJourneyTitleText(quietestCycleRouteType);
-                            setJourneySubtitleText(quietestCycleRouteType);
-
-                            DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections());
-
-                            recyclerView = findViewById(R.id.bottom_sheet_recycler);
-
-                            recyclerView.setAdapter(adapter);
-                            recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
-
-                            FloatingActionButton fab = findViewById(R.id.navigation_fab);
-                            fab.setVisibility(View.VISIBLE);
-
-                            View bottomSheet = findViewById(R.id.route_bottom_sheet);
-                            BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-
-                            bottomSheetBehavior.setDraggable(true);
-                            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
-
-
-                            findViewById(R.id.station_layout_contents).setVisibility(View.GONE);
-                            findViewById(R.id.route_layout_contents).setVisibility(View.VISIBLE);
-
-                            fab.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View view) {
-                                    findViewById(R.id.station_layout_contents).setVisibility(View.GONE);
-                                    findViewById(R.id.route_layout_contents).setVisibility(View.VISIBLE);
-
-                                    View bottomSheet = findViewById(R.id.route_bottom_sheet);
-
-                                    BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-
-                                    bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-                                }
-                            });
+                            setUpInitialRouteUI(route);
+                            setUpRouteBottomSheet();
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -590,6 +518,85 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onErrorResponse(VolleyError error) {
                 Log.e("RouteActivity", "error with route request");
+            }
+        });
+    }
+
+    private void setUpInitialRouteUI(JSONObject route) throws JSONException {
+        // Displays the quietest route
+        quietestCycleRouteType.getPolyline().setVisible(true);
+
+        // Hides the shim
+        setLoadingShimVisibibility(View.GONE);
+
+        JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
+        JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
+
+        // Adds the quietest route lines
+        routeLines.add(quietestCycleRouteType.getPolyline());
+        routeLines.add(mMap.addPolyline(getWalkingRoute(startWalkingRoute)));
+        routeLines.add(mMap.addPolyline(getWalkingRoute(endWalkingRoute)));
+
+        // Adds the route stations to the map
+        StationClusterItem startStation = clusterItems.get(route.getString("start_station"));
+        startStation.setStartStation(true);
+        StationClusterItem endStation = clusterItems.get(route.getString("end_station"));
+        endStation.setEndStation(true);
+
+        // Adds the appropriate stations to the map
+        endStation.setSnippet((endStation.getTotalSpaces() - endStation.getAvailableBikes()) + " out of " + endStation.getTotalSpaces() + " spaces available");
+        mRouteEndStation = endStation;
+        mClusterManager.addItem(startStation);
+        mClusterManager.addItem(endStation);
+    }
+
+    private void parseRoute(JSONObject route) throws JSONException {
+        JSONObject quietestCycleRoute = route.getJSONObject("quietest_cycle_route");
+        JSONObject fastestCycleRoute = route.getJSONObject("fastest_cycle_route");
+        JSONObject shortestCycleRoute = route.getJSONObject("shortest_cycle_route");
+        String startStationName = route.getString("start_station");
+        String endStationName = route.getString("end_station");
+
+        // Extracts the route types from the JSONObjects
+        quietestCycleRouteType = extractRouteType(quietestCycleRoute, startStationName, endStationName);
+        fastestCycleRouteType = extractRouteType(fastestCycleRoute, startStationName, endStationName);
+        shortestCycleRouteType = extractRouteType(shortestCycleRoute, startStationName, endStationName);
+    }
+
+    private void setUpRouteBottomSheet() {
+        // Sets up the bottom sheet title
+        setJourneyTitleText(quietestCycleRouteType);
+        setJourneySubtitleText(quietestCycleRouteType);
+
+        // Sets up the recycler view to display the directions
+        DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections());
+        recyclerView = findViewById(R.id.bottom_sheet_recycler);
+        recyclerView.setAdapter(adapter);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
+
+        View bottomSheet = findViewById(R.id.route_bottom_sheet);
+        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+        bottomSheetBehavior.setDraggable(true);
+        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+
+        // Switches the bottom sheet to show route info
+        findViewById(R.id.station_layout_contents).setVisibility(View.GONE);
+        findViewById(R.id.route_layout_contents).setVisibility(View.VISIBLE);
+
+        FloatingActionButton navigationFab = findViewById(R.id.navigation_fab);
+        navigationFab.setVisibility(View.VISIBLE);
+
+        navigationFab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                findViewById(R.id.station_layout_contents).setVisibility(View.GONE);
+                findViewById(R.id.route_layout_contents).setVisibility(View.VISIBLE);
+
+                View bottomSheet = findViewById(R.id.route_bottom_sheet);
+
+                BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+
+                bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
             }
         });
     }
@@ -605,7 +612,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             JSONObject directionObj = routeSteps.getJSONObject(i).getJSONObject("@attributes");
 
             String streetName = directionObj.getString("name");
-            String turn = "";
+            String turn;
 
             if (directionObj.getString("turn").isEmpty()) {
                 turn = "Straight on";
@@ -632,7 +639,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         double calories = Double.parseDouble(object.getString("calories"));
         double co2saved = Double.parseDouble(object.getString("grammesCO2saved"));
 
-        Polyline line = mMap.addPolyline(getCycleLine(route).visible(false));
+        Polyline line = mMap.addPolyline(getCycleRouteLine(route).visible(false));
 
         return new RouteType(line, distance, duration, calories, co2saved, getDirectionsForRoute(route, startStation, endStation));
     }
@@ -641,7 +648,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return route.getJSONArray("marker").getJSONObject(0).getJSONObject("@attributes");
     }
 
-    private PolylineOptions getCycleLine(JSONObject cycleRoute) throws JSONException {
+    private PolylineOptions getCycleRouteLine(JSONObject cycleRoute) throws JSONException {
         String[] coordinates = getAttributesOfCyclePath(cycleRoute).getString("coordinates").split(" ");
         PolylineOptions line = new PolylineOptions();
 
@@ -680,17 +687,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return line.pattern(pattern).jointType(JointType.ROUND).endCap(new RoundCap()).startCap(new RoundCap()).color(Color.rgb(134, 122, 214));
     }
 
-    private String checkClusterType() {
-        RadioButton bikesButton = findViewById(R.id.bikes_radio_button);
-
-        if (bikesButton.isChecked()) {
-            return "bikes";
-        } else {
-            return "bikestands";
-        }
-    }
-
-    private int getResourceForStation(int availableBikes, int availableSpaces, String stationType) {
+    private int getIconResourceForStation(int availableBikes, int availableSpaces, String stationType) {
 
         if (stationType.equals("bikes")) {
             switch (availableBikes) {
@@ -741,20 +738,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    private void enableMyLocation() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-            mMap.setMyLocationEnabled(true);
-            mMap.getUiSettings().setMyLocationButtonEnabled(true);
-            mMap.getUiSettings().setMapToolbarEnabled(false);
-        } else {
-            // Show rationale and request permission.
-            ActivityCompat.requestPermissions(this,
-                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
-                    PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
-        }
-    }
-
     private void displayBikeStations() {
         String url = "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692";
 
@@ -771,17 +754,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             List<StationClusterItem> items = new ArrayList<>();
 
                             for (int i = 0; i < stations.length(); i++) {
-                                JSONObject station = stations.getJSONObject(i);
-                                StationClusterItem stationClusterItem = new StationClusterItem(station.getJSONObject("position").getDouble("lat"),
-                                        station.getJSONObject("position").getDouble("lng"),
-                                        station.getString("address"),
-                                        generateMarkerSnippet(station.getInt("available_bikes"),
-                                                station.getInt("bike_stands")),
-                                        station.getInt("available_bikes"),
-                                        station.getInt("bike_stands"));
+                                StationClusterItem item = parseStationClusterItem(stations.getJSONObject(i));
+                                items.add(item);
 
-                                items.add(stationClusterItem);
-                                clusterItems.put(stationClusterItem.getTitle(), stationClusterItem);
+                                clusterItems.put(item.getTitle(), item);
                             }
 
                             mClusterManager.addItems(items);
@@ -799,6 +775,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         queue.add(stringRequest);
     }
 
+    private StationClusterItem parseStationClusterItem(JSONObject station) throws JSONException {
+        return new StationClusterItem(station.getJSONObject("position").getDouble("lat"),
+                station.getJSONObject("position").getDouble("lng"),
+                station.getString("address"),
+                generateMarkerSnippet(station.getInt("available_bikes"),
+                        station.getInt("bike_stands")),
+                station.getInt("available_bikes"),
+                station.getInt("bike_stands"));
+    }
+
     private String generateMarkerSnippet(int availableBikes, int totalBikeStands) {
         if (checkClusterType().equals("bikes")) {
             return availableBikes + " out of " + totalBikeStands + " bikes available";
@@ -807,32 +793,28 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    public GoogleMap getMap() {
-        return mMap;
+    private String checkClusterType() {
+        RadioButton bikesButton = findViewById(R.id.bikes_radio_button);
+
+        if (bikesButton.isChecked()) {
+            return "bikes";
+        } else {
+            return "bikestands";
+        }
     }
 
-    @Override
-    public void onMapReady(final GoogleMap map) {
-        map.setOnMarkerClickListener(this);
-
-        mMap = map;
-
-        mClusterManager = new ClusterManager<>(this, map);
-        mClusterManager.setRenderer(new StationRenderer());
-        map.setOnCameraIdleListener(mClusterManager);
-
-
-        map.setMapStyle(new MapStyleOptions(getResources()
-                .getString(R.string.map_style)));
-
-        displayBikeStations();
-
-        // Add a marker in Dublin and move the camera
-        LatLng dublin = new LatLng(53.3498, -6.2603);
-        map.moveCamera(CameraUpdateFactory.zoomTo(16f));
-        map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
-
-        enableMyLocation();
+    private void enableMyLocation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            mMap.setMyLocationEnabled(true);
+            mMap.getUiSettings().setMyLocationButtonEnabled(true);
+            mMap.getUiSettings().setMapToolbarEnabled(false);
+        } else {
+            //todo: Show rationale and request permission.
+            ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                    PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
+        }
     }
 
     @Override
@@ -885,16 +867,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         findViewById(R.id.route_layout_contents).setVisibility(View.GONE);
         findViewById(R.id.station_layout_contents).setVisibility(View.VISIBLE);
 
-        //View bottomSheet = findViewById(R.id.station_bottom_sheet);
         View bottomSheet = findViewById(R.id.route_bottom_sheet);
         BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
         bottomSheetBehavior.setDraggable(true);
 
-        TextView text = findViewById(R.id.bottom_sheet_title);
-        text.setText(marker.getTitle());
+        TextView title = findViewById(R.id.bottom_sheet_title);
+        title.setText(marker.getTitle());
 
-        text = findViewById(R.id.bottom_sheet_byline);
-        text.setText(marker.getSnippet());
+        TextView byline = findViewById(R.id.bottom_sheet_byline);
+        byline.setText(marker.getSnippet());
 
         CameraUpdate yourLocation = CameraUpdateFactory.newLatLngZoom(marker.getPosition(), mMap.getCameraPosition().zoom);
         mMap.animateCamera(yourLocation, 300, null);
@@ -910,14 +891,92 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return true;
     }
 
+    private void clearGraph() {
+        LineChart chart = findViewById(R.id.availability_chart);
+        chart.clear();
+    }
+
+    private void setUpGraph(JSONArray points, Marker marker) throws JSONException {
+        LineChart chart = findViewById(R.id.availability_chart);
+
+        chart.setBackgroundColor(Color.WHITE);
+        chart.setDescription(null);
+
+        XAxis xAxis = chart.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.TOP_INSIDE);
+        xAxis.setTextSize(10f);
+        xAxis.setTextColor(Color.WHITE);
+        xAxis.setDrawAxisLine(false);
+        xAxis.setDrawGridLines(true);
+        xAxis.setTextColor(Color.rgb(255, 192, 56));
+        xAxis.setGranularity(1f); // one hour
+        xAxis.setValueFormatter(new ValueFormatter() {
+
+            private final SimpleDateFormat mFormat = new SimpleDateFormat("h aa", Locale.ENGLISH);
+
+            @Override
+            public String getFormattedValue(float value) {
+
+                return mFormat.format(new Date((long) (value * 1000)));
+            }
+        });
+        xAxis.setLabelCount(11, true);
+
+        YAxis yAxis = chart.getAxisLeft();
+        yAxis.setPosition(YAxis.YAxisLabelPosition.INSIDE_CHART);
+        yAxis.setTextColor(ColorTemplate.getHoloBlue());
+        yAxis.setDrawGridLines(true);
+        yAxis.setGranularityEnabled(true);
+        yAxis.setYOffset(-9f);
+        yAxis.setTextColor(Color.rgb(255, 192, 56));
+
+        yAxis.setAxisMinimum(0);
+        yAxis.setAxisMaximum(getMarkerTotalSpaces(marker));
+
+        YAxis rightAxis = chart.getAxisRight();
+        rightAxis.setEnabled(false);
+
+        ArrayList<Entry> values = new ArrayList<>();
+
+        for (int i = 0; i < points.length(); i++) {
+            JSONArray currentPoints = points.getJSONArray(i);
+
+            values.add(new Entry((float) currentPoints.getDouble(0), (float) currentPoints.getDouble(1)));
+        }
+
+        LineDataSet set1 = new LineDataSet(values, "Bike availability");
+        set1.setAxisDependency(YAxis.AxisDependency.LEFT);
+        set1.setColor(ColorTemplate.getHoloBlue());
+        set1.setValueTextColor(ColorTemplate.getHoloBlue());
+        set1.setLineWidth(1.5f);
+        set1.setDrawCircles(false);
+        set1.setDrawValues(false);
+        set1.setFillAlpha(65);
+        set1.setFillColor(ColorTemplate.getHoloBlue());
+        set1.setHighLightColor(Color.rgb(244, 117, 117));
+        set1.setDrawCircleHole(false);
+        set1.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+
+        LineData lineData = new LineData(set1);
+        chart.setData(lineData);
+        chart.invalidate();
+    }
+
+    private int getMarkerTotalSpaces(Marker marker) {
+        String splitter = marker.getSnippet().contains("bikes available") ? " bikes available" : " spaces available";
+        String snippet = marker.getSnippet().split(splitter)[0];
+        return Integer.parseInt(snippet.split(" out of ")[1]);
+    }
+
     private class StationRenderer extends DefaultClusterRenderer<StationClusterItem> {
 
         public StationRenderer() {
-            super(getApplicationContext(), getMap(), mClusterManager);
+            super(getApplicationContext(), mMap, mClusterManager);
         }
 
         @Override
         protected void onBeforeClusterItemRendered(StationClusterItem item, MarkerOptions markerOptions) {
+            //Todo: with some refactoring, this logic can be combined with how Markers are rendered
             String splitter;
             if (item.getSnippet().contains("bikes available")) {
                 splitter = " bikes available";
@@ -948,7 +1007,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 stationType = checkClusterType();
             }
 
-            markerOptions.icon(BitmapDescriptorFactory.fromResource(getResourceForStation(availableBikes, availableSpaces, stationType)));
+            markerOptions.icon(BitmapDescriptorFactory.fromResource(getIconResourceForStation(availableBikes, availableSpaces, stationType)));
 
             super.onBeforeClusterItemRendered(item, markerOptions);
         }
