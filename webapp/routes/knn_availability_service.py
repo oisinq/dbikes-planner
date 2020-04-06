@@ -80,8 +80,8 @@ def get_fitted_model(station_name):
         # data = pd.read_csv(f"gs://dbikes-planner.appspot.com/stations/{station_name}.csv")
         data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'))
 
-    models = {'bikes': KNeighborsClassifier(n_neighbors=5, weights='distance'),
-              'bikestands': KNeighborsClassifier(n_neighbors=5, weights='distance')}
+    models = {'bikes': KNeighborsClassifier(n_neighbors=30, weights='distance'),
+              'bikestands': KNeighborsClassifier(n_neighbors=30, weights='distance')}
 
     models['bikes'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 13])
     models['bikestands'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 14])

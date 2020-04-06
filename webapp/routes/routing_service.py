@@ -1,4 +1,6 @@
 import pandas as pd
+from google.cloud import datastore
+
 from . import routes
 from . import knn_availability_service
 import flask
@@ -6,7 +8,7 @@ import geopy.distance
 from flask import request, jsonify, url_for
 from scipy import spatial
 import requests
-
+import uuid
 
 def predict_station(station, minutes, request_type):
     return knn_availability_service.predict_availability(station['address'], minutes, request_type)
@@ -156,11 +158,22 @@ def generate_route():
     if end_walking_route_json.status_code >= 400:
         end_walking_route_json = requests.get(get_hiking_route_url(end_station['position'], end_location))
 
-    return jsonify({"start_walking_route": start_walking_route_json.json(), "shortest_cycle_route":
+    result = jsonify({"start_walking_route": start_walking_route_json.json(), "shortest_cycle_route":
         shortest_cycle_route_json.json(), "fastest_cycle_route": fastest_cycle_route_json.json(),
                     "quietest_cycle_route": quietest_cycle_route_json.json(), "end_walking_route":
                         end_walking_route_json.json(), "start_station": start_station['address'],
-                    "end_station": end_station['address']})
+                    "end_station": end_station['address'], "id": uuid.uuid4()})
+
+    datastore_client = datastore.Client()
+
+    route_key = datastore_client.key('Route', str(uuid.uuid4()))
+
+    route = datastore.Entity(key=route_key, exclude_from_indexes=['route'])
+    route.update({"route": result.get_data(as_text=True)})
+
+    datastore_client.put(route)
+
+    return result
 
 
 @routes.errorhandler(404)
