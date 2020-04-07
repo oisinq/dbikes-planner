@@ -65,14 +65,14 @@ def update_bike_data(current_weather):
         "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
 
 
-    print("Refreshing data...")
+    #print("Refreshing data...")
     for _index, row in result.iterrows():
         update_station_records.update_record(row, current_weather)
-    print("Data refresh complete")
+    #print("Data refresh complete")
 
 
 def get_fitted_model(station_name):
-    print(f"opening {station_name}")
+    print(f"opening {station_name} {datetime.now()}")
     if "/" in station_name:
         # data = pd.read_csv('gs://dbikes-planner.appspot.com/stations/Princes Street.csv')
         data = pd.read_csv(open(f'stations/Princes Street.csv', 'r'))
@@ -86,7 +86,7 @@ def get_fitted_model(station_name):
     models['bikes'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 13])
     models['bikestands'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 14])
 
-    print("Model created!")
+    #print("Model created!")
 
     return models
 
@@ -116,18 +116,19 @@ def predict_availability(station, minutes, type):
     else:
         model = get_fitted_model(station)['bikestands']
 
+    #print(f"predicting {datetime.now()}")
     prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
                                  weather['humidity'], weather['wind_speed'], weather['rain'],
                                  weather['visibility'], current_time.timestamp()]])
 
-    print("Prediction made")
+    #print(f"Prediction made {datetime.now()}")
 
     prediction_probs = model.predict_proba(
         [[time_of_day, type_of_day, day_of_year, weather['temperature'],
           weather['humidity'], weather['wind_speed'], weather['rain'],
           weather['visibility'], current_time.timestamp()]])
 
-    print("Prediction probs GOT")
+    #print(f"Prediction probs GOT {datetime.now()}")
 
     classes = model.classes_
     probs = {}
@@ -140,7 +141,7 @@ def predict_availability(station, minutes, type):
 
 @routes.route('/predict/bikes', methods=['GET'])
 def predict_bike_availability_route():
-    print("predicting availability lets goooo")
+    #print("predicting availability lets goooo")
     if 'station' in request.args:
         station = request.args['station']
     else:
@@ -161,7 +162,7 @@ def predict_bike_availability_route():
 
 @routes.route('/predict/bikestands', methods=['GET'])
 def predict_bike_stands_availability():
-    print("predicting availability lets goooo")
+    #print("predicting availability lets goooo")
 
     if 'station' in request.args:
         station = request.args['station']

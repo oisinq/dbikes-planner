@@ -1,18 +1,28 @@
 package io.oisin.fyp;
 
 import android.Manifest;
+import android.app.AlarmManager;
 import android.app.Dialog;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
@@ -20,11 +30,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
@@ -124,8 +136,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        if (getIntent().hasExtra("feedbackSubmitted")) {
+            Toast.makeText(getApplicationContext(),"Thanks for your feedback!",Toast. LENGTH_LONG).show();
+        }
+
         queue = Volley.newRequestQueue(this);
 
+        createNotificationChannel();
         setUpMapUI();
         setUpAutocomplete();
         setUpBottomSheet();
@@ -153,6 +170,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
 
         enableMyLocation();
+    }
+
+    private void createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "Dbikes Planner";
+            String description = "Plan your dbikes here!";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel channel = new NotificationChannel("dbikes-planner", name, importance);
+            channel.setDescription(description);
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
     }
 
     private void setUpMapUI() {
@@ -394,6 +427,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         StringRequest stringRequest = getRouteRequest(url);
 
+        stringRequest.setRetryPolicy(new DefaultRetryPolicy( 50000, 5, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+
         queue.add(stringRequest);
 
         SegmentedGroup group = findViewById(R.id.station_type_segment_group);
@@ -509,7 +544,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             parseRoute(route);
 
                             setUpInitialRouteUI(route);
-                            setUpRouteBottomSheet();
+                            setUpRouteBottomSheet(route);
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -563,7 +598,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         shortestCycleRouteType = extractRouteType(shortestCycleRoute, startStationName, endStationName);
     }
 
-    private void setUpRouteBottomSheet() {
+    private void setUpRouteBottomSheet(JSONObject route) {
         // Sets up the bottom sheet title
         setJourneyTitleText(quietestCycleRouteType);
         setJourneySubtitleText(quietestCycleRouteType);
@@ -575,14 +610,31 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
 
         View bottomSheet = findViewById(R.id.route_bottom_sheet);
-        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-        bottomSheetBehavior.setDraggable(true);
+        final BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+        bottomSheetBehavior.setDraggable(false);
         bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
 
         // Switches the bottom sheet to show route info
         findViewById(R.id.station_layout_contents).setVisibility(View.GONE);
         findViewById(R.id.route_layout_contents).setVisibility(View.VISIBLE);
 
+        setUpNavigationFAB(bottomSheetBehavior, route);
+
+        bottomSheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                LinearLayout layout = findViewById(R.id.route_layout_contents);
+                bottomSheetBehavior.setDraggable(false);
+
+                layout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                View hidden = layout.getChildAt(2);
+                bottomSheetBehavior.setPeekHeight(hidden.getBottom());
+            }
+        });
+    }
+
+    private void setUpNavigationFAB(final BottomSheetBehavior bottomSheetBehavior,
+                                    final JSONObject route) {
         FloatingActionButton navigationFab = findViewById(R.id.navigation_fab);
         navigationFab.setVisibility(View.VISIBLE);
 
@@ -591,14 +643,61 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(View view) {
                 findViewById(R.id.station_layout_contents).setVisibility(View.GONE);
                 findViewById(R.id.route_layout_contents).setVisibility(View.VISIBLE);
+                bottomSheetBehavior.setDraggable(true);
 
                 View bottomSheet = findViewById(R.id.route_bottom_sheet);
 
                 BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
 
                 bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+
+                scheduleNotification(10000, (int)System.currentTimeMillis(), route);
             }
+
+//            private void saveRouteAsFile(JSONObject route) throws JSONException, IOException {
+//                String filename = route.getString("id") + ".json";
+//
+//                File file = new File(getApplicationContext().getFilesDir(), filename);
+//
+//                FileOutputStream stream = new FileOutputStream(file);
+//                try {
+//                    stream.write(route.toString().getBytes());
+//                } finally {
+//                    stream.close();
+//                }
+//            }
         });
+    }
+
+
+
+
+    public void scheduleNotification(long delay, int notificationId, JSONObject route) {//delay is after how much time(in millis) from current time you want to schedule the notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "dbikes-planner")
+                .setContentTitle("Thanks for using our app!")
+                .setContentText("Can you provide some feedback on how busy the station was?")
+                .setSmallIcon(R.drawable.ic_my_icon)
+                //.setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_MAX);
+
+        Context context = this;
+
+        Intent intent = new Intent(context, FeedbackActivity.class);
+        intent.putExtra("route", route.toString());
+
+        PendingIntent activity = PendingIntent.getActivity(context, notificationId, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+        builder.setContentIntent(activity);
+
+        Notification notification = builder.build();
+
+        Intent notificationIntent = new Intent(context, MyNotificationPublisher.class);
+        notificationIntent.putExtra(MyNotificationPublisher.NOTIFICATION_ID, notificationId);
+        notificationIntent.putExtra(MyNotificationPublisher.NOTIFICATION, notification);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(context, notificationId, notificationIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+
+        long futureInMillis = SystemClock.elapsedRealtime() + delay;
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, futureInMillis, pendingIntent);
     }
 
     private List<Direction> getDirectionsForRoute(JSONObject route, String startStation, String endStation) throws JSONException {

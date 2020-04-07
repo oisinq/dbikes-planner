@@ -4,8 +4,12 @@ import json
 from flask import jsonify
 
 
-@routes.route('/feedback/<uuid>', methods=['GET'])
+@routes.route('/feedback/<uuid>', methods=['POST'])
 def process_feedback(uuid):
+    data = request.get_json()
+
+    print(data)
+
     client = datastore.Client()
 
     query = client.query(kind='Route')
