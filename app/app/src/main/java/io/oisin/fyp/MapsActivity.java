@@ -370,8 +370,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 hideBottomSheet();
 
                 showJourneyQuestionDialog(place);
-                //showTimeDialog(place);
-                //showMinutesDialog(place);
             }
 
             @Override
