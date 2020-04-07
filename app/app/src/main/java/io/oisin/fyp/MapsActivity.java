@@ -2,7 +2,6 @@ package io.oisin.fyp;
 
 import android.Manifest;
 import android.app.AlarmManager;
-import android.app.Dialog;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -313,42 +312,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         shim.setVisibility(visibility);
     }
 
-    private void showMinutesDialog(final Place place) {
-        final Dialog addDataAlert = new Dialog(MapsActivity.this);
-
-        addDataAlert.setContentView(R.layout.journey_time_dialog);
-        final EditText inputField = addDataAlert.findViewById(R.id.dataInputField);
-        final Button submitButton = addDataAlert.findViewById(R.id.submitButton);
-        final Button cancelButton = addDataAlert.findViewById(R.id.cancelButton);
-
-        submitButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (inputField.getText().length() == 0) {
-                    Toast.makeText(MapsActivity.this, "Input can not be empty", Toast.LENGTH_SHORT).show();
-                }
-
-                Log.e("grandad", "onClick: it worked lol");
-                addDataAlert.dismiss();
-                int minutes = Integer.parseInt(inputField.getText().toString());
-
-                showTimeDialog(place);
-
-                setBlankShimVisibibility(View.GONE);
-                showRoute(place, minutes);
-            }
-        });
-        cancelButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                addDataAlert.cancel();
-                setBlankShimVisibibility(View.GONE);
-            }
-        });
-
-        addDataAlert.show();
-    }
-
     private void showTimeDialog(final Place place) {
         final Calendar rightNow = Calendar.getInstance();
 
@@ -373,6 +336,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     }
                 }, rightNow.get(Calendar.HOUR_OF_DAY), rightNow.get(Calendar.MINUTE), true);
 
+        timePickerDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialogInterface) {
+                setBlankShimVisibibility(View.INVISIBLE);
+            }
+        });
+
+        timePickerDialog.setCanceledOnTouchOutside(false);
         timePickerDialog.show();
     }
 
@@ -460,6 +431,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         AlertDialog dialog = builder.create();
 
+        dialog.setCanceledOnTouchOutside(false);
         dialog.show();
     }
 
