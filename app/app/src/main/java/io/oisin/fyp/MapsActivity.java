@@ -7,7 +7,9 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.TimePickerDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -27,8 +29,10 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.TimePicker;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -93,6 +97,7 @@ import org.json.JSONObject;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -327,6 +332,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 addDataAlert.dismiss();
                 int minutes = Integer.parseInt(inputField.getText().toString());
 
+                showTimeDialog(place);
+
                 setBlankShimVisibibility(View.GONE);
                 showRoute(place, minutes);
             }
@@ -340,6 +347,33 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
 
         addDataAlert.show();
+    }
+
+    private void showTimeDialog(final Place place) {
+        final Calendar rightNow = Calendar.getInstance();
+
+        final TimePickerDialog timePickerDialog = new TimePickerDialog(this,
+                new TimePickerDialog.OnTimeSetListener() {
+
+                    @Override
+                    public void onTimeSet(TimePicker timePicker, int hour, int minute) {
+                        Calendar selectedTime = Calendar.getInstance();
+                        selectedTime.set(Calendar.HOUR_OF_DAY, hour);
+                        selectedTime.set(Calendar.MINUTE, minute);
+                        if (selectedTime.getTimeInMillis() >= rightNow.getTimeInMillis()) {
+                            //it's after current
+                            long milliseconds = selectedTime.getTimeInMillis() - rightNow.getTimeInMillis();
+                            int minutes = (int) ((milliseconds/(1000*60))%60);
+
+                            setBlankShimVisibibility(View.INVISIBLE);
+                            showRoute(place, minutes);
+                        } else {
+                            Toast.makeText(getApplicationContext(), "You can't leave be in the past!", Toast.LENGTH_LONG).show();
+                        }
+                    }
+                }, rightNow.get(Calendar.HOUR_OF_DAY), rightNow.get(Calendar.MINUTE), true);
+
+        timePickerDialog.show();
     }
 
     private void setUpAutocomplete() {
@@ -364,7 +398,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 setBlankShimVisibibility(View.VISIBLE);
                 hideBottomSheet();
 
-                showMinutesDialog(place);
+                showJourneyQuestionDialog(place);
+                //showTimeDialog(place);
+                //showMinutesDialog(place);
             }
 
             @Override
@@ -392,6 +428,39 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         mRouteEndStation.getAvailableBikes()));
             }
         });
+    }
+
+    private void showJourneyQuestionDialog(final Place place) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+        builder.setTitle("When are you leaving?");
+
+        builder.setPositiveButton("Now", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                setBlankShimVisibibility(View.INVISIBLE);
+                showRoute(place, 0);
+            }
+        });
+
+        builder.setNegativeButton("Later", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                // User cancelled the dialog
+                dialog.dismiss();
+                showTimeDialog(place);
+            }
+        });
+
+        builder.setNeutralButton("Cancel", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                // User cancelled the dialog
+                dialog.cancel();
+                setBlankShimVisibibility(View.INVISIBLE);
+            }
+        });
+
+        AlertDialog dialog = builder.create();
+
+        dialog.show();
     }
 
     private void showRoute(Place place, int minutes) {
