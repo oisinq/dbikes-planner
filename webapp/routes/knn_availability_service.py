@@ -119,14 +119,14 @@ def predict_availability(station, minutes, type):
     #print(f"predicting {datetime.now()}")
     prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
                                  weather['humidity'], weather['wind_speed'], weather['rain'],
-                                 weather['visibility'], current_time.timestamp()]])
+                                 weather['visibility'], current_time.timestamp()//3600]])
 
     #print(f"Prediction made {datetime.now()}")
 
     prediction_probs = model.predict_proba(
         [[time_of_day, type_of_day, day_of_year, weather['temperature'],
           weather['humidity'], weather['wind_speed'], weather['rain'],
-          weather['visibility'], current_time.timestamp()]])
+          weather['visibility'], current_time.timestamp()//3600]])
 
     #print(f"Prediction probs GOT {datetime.now()}")
 

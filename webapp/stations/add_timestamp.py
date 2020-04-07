@@ -21,7 +21,7 @@ def timestamp_fix():
         result = []
 
         for stamp in timestamp:
-            result.append(int(datetime.fromisoformat(stamp).timestamp()))
+            result.append(int(datetime.fromisoformat(stamp).timestamp()//3600))
 
         df['unix_timestamp'] = result
         df.to_csv(file, index=None)
