@@ -1,167 +1,171 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    tools:context=".FeedbackActivity">
-
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/my_toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        app:title="Feedback"
-        android:background="?attr/colorPrimary"
-        app:titleTextColor="#ffffffff"
-        android:elevation="4dp"
-        android:theme="@style/ThemeOverlay.AppCompat.ActionBar"
-        app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
-        xmlns:app="http://schemas.android.com/apk/res-auto"
-        xmlns:android="http://schemas.android.com/apk/res/android"/>
-
+    android:layout_height="match_parent">
     <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="24sp"
-            android:text="Just a few questions."/>
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="18dp"
-            android:text="Your feedback will help improve our app." />
+        tools:context=".FeedbackActivity"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
-        <Space
-            android:layout_width="wrap_content"
-            android:layout_height="30dp"/>
-
-        <TextView
-            android:id="@+id/feedback_start_question"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="16sp"
-            android:text="Was there a queue for bikes at the Charlemont Street station?"/>
-
-        <RadioGroup
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <RadioButton
-                android:id="@+id/feedback_start_yes"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:buttonTint="@color/colorPrimary"
-                android:text="Yes"/>
-            <RadioButton
-                android:id="@+id/feedback_start_no"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:buttonTint="@color/colorPrimary"
-                android:text="No"/>
-        </RadioGroup>
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/my_toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Feedback"
+            android:background="?attr/colorPrimary"
+            app:titleTextColor="#ffffffff"
+            android:elevation="4dp"
+            android:theme="@style/ThemeOverlay.AppCompat.ActionBar"
+            app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            xmlns:android="http://schemas.android.com/apk/res/android"/>
 
         <LinearLayout
-            android:id="@+id/feedback_start_group"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="invisible">
+            android:padding="16dp">
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:text="How long did you have to wait?"/>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content">
-
-                <com.google.android.material.slider.Slider
-                    android:id="@+id/feedback_start_wait_time"
-                    android:layout_width="0dp"
-                    android:layout_weight = "1"
-                    android:valueFrom="0"
-                    android:valueTo="20"
-                    android:stepSize="1"
-                    android:layout_height="wrap_content"/>
-
-                <TextView
-                    android:layout_width="70dp"
-                    android:layout_weight = "0"
-                    android:layout_height="wrap_content"
-                    android:textSize="16sp"
-                    android:text="minutes"/>
-            </LinearLayout>
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/feedback_end_question"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="16sp"
-            android:text="Was there a queue for bikes at the O'Connell Street station?"/>
-
-        <RadioGroup
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <RadioButton
-                android:id="@+id/feedback_end_yes"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:buttonTint="@color/colorPrimary"
-                android:text="Yes"/>
-            <RadioButton
-                android:id="@+id/feedback_end_no"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:buttonTint="@color/colorPrimary"
-                android:text="No"/>
-        </RadioGroup>
-
-        <LinearLayout
-            android:id="@+id/feedback_end_group"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="invisible">
+                android:textSize="24sp"
+                android:text="Just a few questions."/>
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:textSize="18dp"
+                android:text="Your feedback will help improve our app." />
+
+            <Space
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"/>
+
+            <TextView
+                android:id="@+id/feedback_start_question"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:textSize="16sp"
-                android:text="How long did you have to wait?"/>
+                android:text="Was there a queue for bikes at the Charlemont Street station?"/>
+
+            <RadioGroup
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/feedback_start_yes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="@color/colorPrimary"
+                    android:text="Yes"/>
+                <RadioButton
+                    android:id="@+id/feedback_start_no"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="@color/colorPrimary"
+                    android:text="No"/>
+            </RadioGroup>
 
             <LinearLayout
+                android:id="@+id/feedback_start_group"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content">
-                <com.google.android.material.slider.Slider
-                    android:id="@+id/feedback_end_wait_time"
-                    android:layout_width="0dp"
-                    android:layout_weight = "1"
-                    android:valueFrom="0"
-                    android:valueTo="20"
-                    android:stepSize="1"
-                    android:layout_height="wrap_content"/>
-
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="invisible">
                 <TextView
-                    android:layout_width="70dp"
-                    android:layout_weight = "0"
-                    android:textSize="16sp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="minutes"/>
-            </LinearLayout>
-        </LinearLayout>
+                    android:textSize="16sp"
+                    android:text="How long did you have to wait?"/>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/feedback_submit_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="Submit"/>
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content">
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/feedback_start_wait_time"
+                        android:layout_width="0dp"
+                        android:layout_weight = "1"
+                        android:valueFrom="0"
+                        android:valueTo="20"
+                        android:stepSize="1"
+                        android:layout_height="wrap_content"/>
+
+                    <TextView
+                        android:layout_width="70dp"
+                        android:layout_weight = "0"
+                        android:layout_height="wrap_content"
+                        android:textSize="16sp"
+                        android:text="minutes"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/feedback_end_question"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:text="Was there a queue for bikes at the O'Connell Street station?"/>
+
+            <RadioGroup
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <RadioButton
+                    android:id="@+id/feedback_end_yes"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="@color/colorPrimary"
+                    android:text="Yes"/>
+                <RadioButton
+                    android:id="@+id/feedback_end_no"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="@color/colorPrimary"
+                    android:text="No"/>
+            </RadioGroup>
+
+            <LinearLayout
+                android:id="@+id/feedback_end_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="invisible">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:text="How long did you have to wait?"/>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content">
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/feedback_end_wait_time"
+                        android:layout_width="0dp"
+                        android:layout_weight = "1"
+                        android:valueFrom="0"
+                        android:valueTo="20"
+                        android:stepSize="1"
+                        android:layout_height="wrap_content"/>
+
+                    <TextView
+                        android:layout_width="70dp"
+                        android:layout_weight = "0"
+                        android:textSize="16sp"
+                        android:layout_height="wrap_content"
+                        android:text="minutes"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/feedback_submit_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Submit"/>
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</ScrollView>

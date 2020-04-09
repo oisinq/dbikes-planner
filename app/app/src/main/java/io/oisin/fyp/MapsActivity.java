@@ -716,6 +716,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .setContentTitle("Thanks for using our app!")
                 .setContentText("Can you provide some feedback on how busy the station was?")
                 .setSmallIcon(R.drawable.ic_my_icon)
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText("Can you provide some feedback on how busy the station was?"))
                 //.setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_MAX);
 
