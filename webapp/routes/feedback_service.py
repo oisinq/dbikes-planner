@@ -1,3 +1,7 @@
+import http
+
+from google.cloud import datastore
+
 from routes import *
 
 import json
@@ -12,13 +16,11 @@ def process_feedback(uuid):
 
     client = datastore.Client()
 
-    query = client.query(kind='Route')
-    route_key = client.key('Route', uuid)
+    feedback_key = client.key('Feedback', uuid)
 
-    query.key_filter(route_key, '>')
+    route = datastore.Entity(key=feedback_key, exclude_from_indexes=['Feedback'])
+    route.update({"route": data})
 
-    fetched_query = list(query.fetch())[0]
+    client.put(route)
 
-    route = json.loads(fetched_query['route'])
-
-    return jsonify(route)
+    return '', 204

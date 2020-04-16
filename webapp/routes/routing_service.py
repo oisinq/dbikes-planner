@@ -64,31 +64,32 @@ def get_current_availability(station, request_type):
         return "high"
 
 
-station_list = "hi"
+station_list = None
+station_tree = None
 
 
-def find_best_station(location, station_list, station_tree, request_type, minutes):
+def find_best_station(location, request_type, minutes):
     closest_start_stations = station_tree.query(location, k=3)
-    print(f"Found {len(closest_start_stations)} stations bruh")
     hierarchy = ['high', 'moderate', 'low', 'very low', 'empty']
 
-    best_station = station_list.iloc[closest_start_stations[1][0]]
+    # NOTE: Don't mix up the index with the "Number" attribute in the DataFrame. They don't match up.
+    first_station_index = closest_start_stations[1][0]
+    best_station = station_list.iloc[first_station_index]
     results = []
 
     for index, station_index in enumerate(closest_start_stations[1]):
         station = station_list.iloc[station_index]
-        current_availability = get_current_availability(station, request_type)
 
-        #print(f"Sending a request for {station['address']} {datetime.now()}")
+        # current_availability = get_current_availability(station, request_type) # Not currently used, could be useful
 
         distance = geopy.distance.distance(location, (station['position']['lat'], station['position']['lng']))
 
-        response = predict_station(station_list.iloc[station_index], int(float(minutes) + (distance.m / 84)),
-                                   request_type)
-#        json = response.json()
-        availability = response['prediction']
+        prediction_response = predict_station(station_list.iloc[station_index], int(float(minutes) + (distance.m / 84)),
+                                              request_type) # 84 metres per minute == 1.4 m/s, which is the average urban walking speed
 
-        results.append(response)
+        availability = prediction_response['prediction']
+
+        results.append(prediction_response)
         # todo: add a "very high" availability & take it into account if we jump between "very high" and "empty"
         # todo: also look into normalising data
 
@@ -96,7 +97,7 @@ def find_best_station(location, station_list, station_tree, request_type, minute
         if availability == 'high':  # if a station has high availability, we return now because it's the closest
             return station_list.iloc[station_index]
 
-    # This picks the best station from the outputs (ignoring distance, since k=3
+    # This picks the best station from the outputs (ignoring distance, since k=3)
     for level_index, level in enumerate(hierarchy[1:]):  # Ignores 'high', because of the previous if
         results_at_level = list(filter(lambda result: result['prediction'] == level, results))
 
@@ -132,27 +133,14 @@ def generate_route():
     else:
         return "Error: No minutes specified."
 
-    coordinate_list = []
+    start_station = find_best_station(start_location, 'bikes', minutes)
 
-    for coordinate in station_list['position'].values:
-        point = (float(coordinate['lat']), float(coordinate['lng']))
-        coordinate_list.append(point)
+    end_station = find_best_station(end_location, 'bikestands', minutes)
 
-    station_tree = spatial.KDTree(coordinate_list)
-
-    #print(f"finding best start station {datetime.now()}")
-    start_station = find_best_station(start_location, station_list, station_tree, 'bikes', minutes)
-
-    #print(f"finding best end station {datetime.now()}")
-    end_station = find_best_station(end_location, station_list, station_tree, 'bikestands', minutes)
-
-    #print(f"getting quietest route {datetime.now()}")
     quietest_cycle_route_json = requests.get(
         get_cycle_streets_url(start_station['position'], end_station['position'], 'quietest'))
-    #print(f"getting fastest route {datetime.now()}")
     fastest_cycle_route_json = requests.get(
         get_cycle_streets_url(start_station['position'], end_station['position'], 'fastest'))
-    #print(f"getting shortest route {datetime.now()}")
     shortest_cycle_route_json = requests.get(
         get_cycle_streets_url(start_station['position'], end_station['position'], 'shortest'))
 
@@ -185,7 +173,6 @@ class SaveRouteThread(threading.Thread):
         self.result = result
 
     def run(self):
-        #print(f"Starting inside thread {datetime.now()}")
         datastore_client = datastore.Client()
 
         id = uuid.uuid4()
@@ -198,21 +185,6 @@ class SaveRouteThread(threading.Thread):
 
         datastore_client.put(route)
 
-        #print(f"saved route... {datetime.now()}")
-
-
-class RefreshThread(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(self)
-
-    def run(self):
-        while True:
-            #print(f"Refreshing bikes... {datetime.now()}")
-            station_list = pd.read_json(
-                "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
-            #print(f"Refreshed bikes {datetime.now()}")
-            time.sleep(5*60)
-
 
 @routes.errorhandler(404)
 def page_not_found(e):
@@ -220,15 +192,34 @@ def page_not_found(e):
 
 
 def refresh_bikes():
-    #print(f"Refreshing bikes... {datetime.now()}")
 
     global station_list
     station_list = pd.read_json(
         "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
-    #print(f"Refreshed bikes {datetime.now()}")
+    station_list = station_list.sort_values(by='number')
+
+    coordinate_list = []
+
+    for coordinate in station_list['position'].values:
+        point = (float(coordinate['lat']), float(coordinate['lng']))
+        coordinate_list.append(point)
+
+    global station_tree
+    station_tree = spatial.KDTree(coordinate_list)
 
 
 refresh_bikes()
+
+# class RefreshThread(threading.Thread):
+#     def __init__(self):
+#         threading.Thread.__init__(self)
+#
+#     def run(self):
+#         while True:
+#             global station_list
+#             station_list = pd.read_json(
+#                 "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
+#             time.sleep(5*60)
 
 # scheduler = BackgroundScheduler()
 # scheduler.add_job(func=refresh_bikes, trigger="interval", minutes=5)

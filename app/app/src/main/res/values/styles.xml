@@ -17,4 +17,5 @@
 
     <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
 
+    <style name="MyDialogStyle" parent="Theme.AppCompat.DayNight.Dialog.Alert"/>
 </resources>

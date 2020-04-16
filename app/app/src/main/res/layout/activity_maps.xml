@@ -5,6 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:forceDarkAllowed="true"
     tools:context=".MapsActivity">
 
     <fragment android:id="@+id/map"
@@ -85,9 +86,7 @@
     </fragment>
 
     <!-- include bottom sheet -->
-    <include layout="@layout/route_bottom_sheet" />
-
-    <include layout="@layout/station_bottom_sheet" />
+    <include layout="@layout/bottom_sheet" />
 
     <RelativeLayout
         android:id="@+id/route_loading_shim"

@@ -6,6 +6,7 @@ from flask import request
 import json
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier
 from apscheduler.schedulers.background import BackgroundScheduler
 import threading
 import time
@@ -54,7 +55,11 @@ def update_weather():
     parsed_weather['temperature'] = request_weather['main']['temp']
     parsed_weather['humidity'] = request_weather['main']['humidity']
     parsed_weather['wind_speed'] = request_weather['wind']['speed']
-    parsed_weather['visibility'] = request_weather['visibility']
+
+    if "visibility" in request_weather:
+        parsed_weather['visibility'] = request_weather['visibility']
+    else:
+        parsed_weather['visibility'] = 0
 
     global weather
     weather = parsed_weather
@@ -68,10 +73,10 @@ def update_bike_data(current_weather):
     #print("Refreshing data...")
     for _index, row in result.iterrows():
         update_station_records.update_record(row, current_weather)
-    #print("Data refresh complete")
+    # print("Data refresh complete")
 
 
-def get_fitted_model(station_name):
+def read_file_for_station(station_name):
     print(f"opening {station_name} {datetime.now()}")
     if "/" in station_name:
         # data = pd.read_csv('gs://dbikes-planner.appspot.com/stations/Princes Street.csv')
@@ -80,20 +85,33 @@ def get_fitted_model(station_name):
         # data = pd.read_csv(f"gs://dbikes-planner.appspot.com/stations/{station_name}.csv")
         data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'))
 
-    models = {'bikes': KNeighborsClassifier(n_neighbors=30, weights='distance'),
-              'bikestands': KNeighborsClassifier(n_neighbors=30, weights='distance')}
+    return data
 
-    models['bikes'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 13])
-    models['bikestands'].fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 14])
 
-    #print("Model created!")
+def get_fitted_bikestands_model(station_name):
+    data = read_file_for_station(station_name)
 
-    return models
+    model = KNeighborsClassifier(n_neighbors=10, weights='distance')
+
+    model.fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 14])
+
+    return model
+
+
+def get_fitted_bikes_model(station_name):
+    data = read_file_for_station(station_name)
+
+    model = KNeighborsClassifier(n_neighbors=10, weights='distance')
+
+    model.fit(data.iloc[:, [2, 3, 4, 6, 7, 9, 10, 12, 15]], data.iloc[:, 13])
+
+    return model
 
 
 def refresh_data():
-    update_weather()
-    update_bike_data(weather)
+    if datetime.now().hour >= 5:
+        update_weather()
+        update_bike_data(weather)
 
 
 refresh_data()
@@ -112,23 +130,18 @@ def predict_availability(station, minutes, type):
     day_of_year = request_time.timetuple().tm_yday
 
     if type == 'bikes':
-        model = get_fitted_model(station)['bikes']
+        model = get_fitted_bikes_model(station)
     else:
-        model = get_fitted_model(station)['bikestands']
+        model = get_fitted_bikestands_model(station)
 
-    #print(f"predicting {datetime.now()}")
     prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
                                  weather['humidity'], weather['wind_speed'], weather['rain'],
                                  weather['visibility'], current_time.timestamp()//3600]])
-
-    #print(f"Prediction made {datetime.now()}")
 
     prediction_probs = model.predict_proba(
         [[time_of_day, type_of_day, day_of_year, weather['temperature'],
           weather['humidity'], weather['wind_speed'], weather['rain'],
           weather['visibility'], current_time.timestamp()//3600]])
-
-    #print(f"Prediction probs GOT {datetime.now()}")
 
     classes = model.classes_
     probs = {}

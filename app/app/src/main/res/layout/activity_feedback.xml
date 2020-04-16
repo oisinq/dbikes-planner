@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
+    android:forceDarkAllowed="true"
     android:layout_height="match_parent">
     <LinearLayout
         android:orientation="vertical"
@@ -32,10 +33,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="24sp"
+                android:textColor="?android:attr/textColorPrimary"
                 android:text="Just a few questions."/>
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="18dp"
                 android:text="Your feedback will help improve our app." />
 
@@ -73,7 +76,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:visibility="invisible">
+                android:visibility="gone">
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -94,11 +97,12 @@
                         android:layout_height="wrap_content"/>
 
                     <TextView
-                        android:layout_width="70dp"
+                        android:id="@+id/start_slider_minutes"
+                        android:layout_width="100dp"
                         android:layout_weight = "0"
                         android:layout_height="wrap_content"
                         android:textSize="16sp"
-                        android:text="minutes"/>
+                        android:text="0 minutes"/>
                 </LinearLayout>
             </LinearLayout>
 
@@ -132,7 +136,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:visibility="invisible">
+                android:visibility="gone">
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -152,11 +156,12 @@
                         android:layout_height="wrap_content"/>
 
                     <TextView
-                        android:layout_width="70dp"
+                        android:id="@+id/end_slider_minutes"
+                        android:layout_width="100dp"
                         android:layout_weight = "0"
                         android:textSize="16sp"
                         android:layout_height="wrap_content"
-                        android:text="minutes"/>
+                        android:text="0 minutes"/>
                 </LinearLayout>
             </LinearLayout>
 

@@ -11,10 +11,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Color;
-import android.location.Criteria;
-import android.location.Location;
-import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -31,6 +29,7 @@ import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
@@ -58,6 +57,7 @@ import com.google.android.gms.common.api.Status;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.LocationSource;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.OnStreetViewPanoramaReadyCallback;
 import com.google.android.gms.maps.StreetViewPanorama;
@@ -103,7 +103,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import info.hoang8f.android.segmented.SegmentedGroup;
@@ -120,6 +119,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private StreetViewPanorama mStreetViewPanorama;
     private ClusterManager<StationClusterItem> mClusterManager;
     private Marker selectedStation;
+    private Configuration configuration;
     private RequestQueue queue;
     private Map<String, StationClusterItem> clusterItems = new HashMap<>();
     private Set<Polyline> routeLines = new HashSet<>();
@@ -141,7 +141,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mapFragment.getMapAsync(this);
 
         if (getIntent().hasExtra("feedbackSubmitted")) {
-            Toast.makeText(getApplicationContext(),"Thanks for your feedback!",Toast. LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), "Thanks for your feedback!", Toast.LENGTH_LONG).show();
         }
 
         queue = Volley.newRequestQueue(this);
@@ -154,6 +154,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     @Override
+    public void onConfigurationChanged(@NonNull Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+
+        MapStyleOptions style = null;
+
+        int currentNightMode = getApplicationContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        switch (currentNightMode) {
+            case Configuration.UI_MODE_NIGHT_NO:
+                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_light);
+                break;
+            case Configuration.UI_MODE_NIGHT_YES:
+                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_dark);
+                break;
+        }
+        mMap.setMapStyle(style);
+
+    }
+
+    @Override
     public void onMapReady(final GoogleMap map) {
         map.setOnMarkerClickListener(this);
 
@@ -163,15 +182,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mClusterManager.setRenderer(new StationRenderer());
         map.setOnCameraIdleListener(mClusterManager);
 
-        map.setMapStyle(new MapStyleOptions(getResources()
-                .getString(R.string.map_style)));
+        MapStyleOptions style = null;
+
+        int currentNightMode = getApplicationContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        switch (currentNightMode) {
+            case Configuration.UI_MODE_NIGHT_NO:
+                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_light);
+                break;
+            case Configuration.UI_MODE_NIGHT_YES:
+                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_dark);
+                break;
+        }
+        mMap.setMapStyle(style);
 
         displayBikeStations();
-
-        //todo: Move the camera view to O'Connell St – this should go to the user's location instead
-        LatLng dublin = new LatLng(53.3498, -6.2603);
-        map.moveCamera(CameraUpdateFactory.zoomTo(16f));
-        map.moveCamera(CameraUpdateFactory.newLatLng(dublin));
 
         enableMyLocation();
     }
@@ -210,7 +234,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 MarkerManager.Collection markerCollection = mClusterManager.getMarkerCollection();
 
                 for (Marker m : markerCollection.getMarkers()) {
-                    if (m.getSnippet().contains("bikes available")) {
+                    if (m.getSnippet().contains("bikes currently available")) {
                         updateMarkerSnippet(m);
                     } else {
                         updateMarkerSnippet(m);
@@ -239,7 +263,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int getAvailableBikesForMarker(Marker marker) {
         String snippet = getStationStatus(marker);
 
-        if (marker.getSnippet().contains(" bikes available")) {
+        if (marker.getSnippet().contains(" bikes currently available")) {
             return Integer.parseInt(snippet.split(" out of ")[0]);
         } else {
             int totalSpaces = Integer.parseInt(snippet.split(" out of ")[1]);
@@ -252,7 +276,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int getAvailableSpacesForMarker(Marker marker) {
         String stationStatus = getStationStatus(marker);
 
-        if (marker.getSnippet().contains(" bikes available")) {
+        if (marker.getSnippet().contains(" bikes currently available")) {
             int totalSpaces = Integer.parseInt(stationStatus.split(" out of ")[1]);
 
             int availableBikes = Integer.parseInt(stationStatus.split(" out of ")[0]);
@@ -272,7 +296,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     For example, if a marker has 5 bikes out of 20 available, it returns "5 out of 20"
      */
     private String getStationStatus(Marker marker) {
-        String splitter = marker.getSnippet().contains("bikes available") ? " bikes available" : " spaces available";
+        String splitter = marker.getSnippet().contains("bikes currently available") ? " bikes currently available" : " spaces currently available";
         return marker.getSnippet().split(splitter)[0];
     }
 
@@ -323,16 +347,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         Calendar selectedTime = Calendar.getInstance();
                         selectedTime.set(Calendar.HOUR_OF_DAY, hour);
                         selectedTime.set(Calendar.MINUTE, minute);
-                        if (selectedTime.getTimeInMillis() >= rightNow.getTimeInMillis()) {
-                            //it's after current
-                            long milliseconds = selectedTime.getTimeInMillis() - rightNow.getTimeInMillis();
-                            int minutes = (int) ((milliseconds/(1000*60))%60);
 
-                            setBlankShimVisibibility(View.INVISIBLE);
-                            showRoute(place, minutes);
+                        long milliseconds = 0;
+                        if (selectedTime.getTimeInMillis() >= rightNow.getTimeInMillis()) {
+                            milliseconds = selectedTime.getTimeInMillis() - rightNow.getTimeInMillis();
                         } else {
-                            Toast.makeText(getApplicationContext(), "You can't leave be in the past!", Toast.LENGTH_LONG).show();
+                            // If the time is in the past, expect to be in the future and add on 1 day to the difference
+                            milliseconds = selectedTime.getTimeInMillis() - rightNow.getTimeInMillis() + 86400000;
                         }
+
+                        int minutes = (int) (milliseconds / (1000 * 60));
+
+                        setBlankShimVisibibility(View.INVISIBLE);
+                        showRoute(place, minutes);
                     }
                 }, rightNow.get(Calendar.HOUR_OF_DAY), rightNow.get(Calendar.MINUTE), true);
 
@@ -354,6 +381,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment)
                 getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
+
 
         autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG));
 
@@ -400,7 +428,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void showJourneyQuestionDialog(final Place place) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.MyDialogStyle);
 
         builder.setTitle("When are you leaving?");
 
@@ -441,24 +469,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.animateCamera(CameraUpdateFactory.zoomTo(13f));
         mClusterManager.clearItems();
 
-        LocationManager locationManager = (LocationManager)
-                getSystemService(Context.LOCATION_SERVICE);
-        Criteria criteria = new Criteria();
-
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Log.e("MapsActivity", "Location services must be activated.");
-        }
-
-        routeMarkers.add(mMap.addMarker(new MarkerOptions().position(new LatLng(53.330667, -6.258590))));
-        routeMarkers.add(mMap.addMarker(new MarkerOptions().position(place.getLatLng())));
+        routeMarkers.add(mMap.addMarker(new MarkerOptions().position(place.getLatLng()).icon(BitmapDescriptorFactory.defaultMarker(150.0f))));
 
         String start = "53.330667,-6.258590";
 
-        Location location = locationManager.getLastKnownLocation(Objects.requireNonNull(locationManager
-                .getBestProvider(criteria, false)));
         //todo: This settings lets us use our real location. Not currently being used.
         // String start = + location.getLatitude() + "," + location.getLongitude();
-
         String end = place.getLatLng().latitude + "," + place.getLatLng().longitude;
 
         String url = "https://dbikes-planner.appspot.com/route?start=" + start + "&end="
@@ -519,7 +535,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             routeType.getPolyline().setVisible(true);
             routeLines.add(routeType.getPolyline());
 
-            DirectionsAdapter adapter = new DirectionsAdapter(routeType.getDirections());
+            DirectionsAdapter adapter = new DirectionsAdapter(routeType.getDirections(), getApplicationContext());
             recyclerView.setAdapter(adapter);
         }
     }
@@ -618,7 +634,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         endStation.setEndStation(true);
 
         // Adds the appropriate stations to the map
-        endStation.setSnippet((endStation.getTotalSpaces() - endStation.getAvailableBikes()) + " out of " + endStation.getTotalSpaces() + " spaces available");
+        endStation.setSnippet((endStation.getTotalSpaces() - endStation.getAvailableBikes()) + " out of " + endStation.getTotalSpaces() + " spaces currently available");
         mRouteEndStation = endStation;
         mClusterManager.addItem(startStation);
         mClusterManager.addItem(endStation);
@@ -643,7 +659,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setJourneySubtitleText(quietestCycleRouteType);
 
         // Sets up the recycler view to display the directions
-        DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections());
+        DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections(), getApplicationContext());
         recyclerView = findViewById(R.id.bottom_sheet_recycler);
         recyclerView.setAdapter(adapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
@@ -927,9 +943,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private String generateMarkerSnippet(int availableBikes, int totalBikeStands) {
         if (checkClusterType().equals("bikes")) {
-            return availableBikes + " out of " + totalBikeStands + " bikes available";
+            return availableBikes + " out of " + totalBikeStands + " bikes currently available";
         } else {
-            return (totalBikeStands - availableBikes) + " out of " + totalBikeStands + " spaces available";
+            return (totalBikeStands - availableBikes) + " out of " + totalBikeStands + " spaces currently available";
         }
     }
 
@@ -949,11 +965,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mMap.setMyLocationEnabled(true);
             mMap.getUiSettings().setMyLocationButtonEnabled(true);
             mMap.getUiSettings().setMapToolbarEnabled(false);
+
+            LocationSource locationSource = new MockedLocationSource();
+
+            mMap.setLocationSource(locationSource);
+
+            // This moves the camera to Charlemont. This is hard-coded because we are spoofing the location currently.
+            LatLng coordinates = new LatLng(53.330667, -6.258590);
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(coordinates, 16f));
         } else {
             //todo: Show rationale and request permission.
             ActivityCompat.requestPermissions(this,
                     new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
                     PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
+
+            LatLng cityCentre = new LatLng(53.3498, -6.2603);
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(cityCentre, 16f));
         }
     }
 
@@ -978,7 +1005,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         String url = marker.getTitle().contains("/") ? "https://dbikes-planner." +
                 "appspot.com/history/Princes Street" :
-                "https://dbikes-planner.appspot.com/history/" + marker.getTitle();
+                "https://dbikes-planner.appspot.com/history/" + marker.getTitle() + "";
 
         clearGraph();
 
@@ -1103,7 +1130,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private int getMarkerTotalSpaces(Marker marker) {
-        String splitter = marker.getSnippet().contains("bikes available") ? " bikes available" : " spaces available";
+        String splitter = marker.getSnippet().contains("bikes currently available") ? " bikes currently available" : " spaces currently available";
         String snippet = marker.getSnippet().split(splitter)[0];
         return Integer.parseInt(snippet.split(" out of ")[1]);
     }
@@ -1118,10 +1145,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         protected void onBeforeClusterItemRendered(StationClusterItem item, MarkerOptions markerOptions) {
             //Todo: with some refactoring, this logic can be combined with how Markers are rendered
             String splitter;
-            if (item.getSnippet().contains("bikes available")) {
-                splitter = " bikes available";
+            if (item.getSnippet().contains("bikes currently available")) {
+                splitter = " bikes currently available";
             } else {
-                splitter = " spaces available";
+                splitter = " spaces currently available";
             }
 
             int totalSpaces = Integer.parseInt(item.getSnippet().split(splitter)[0].split(" out of ")[1]);
@@ -1129,7 +1156,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             int availableBikes;
             int availableSpaces;
 
-            if (splitter.equals(" bikes available")) {
+            if (splitter.equals(" bikes currently available")) {
                 availableBikes = Integer.parseInt(snippet.split(" out of ")[0]);
                 availableSpaces = totalSpaces - availableBikes;
             } else {

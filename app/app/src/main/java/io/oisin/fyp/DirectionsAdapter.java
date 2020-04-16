@@ -1,24 +1,28 @@
 package io.oisin.fyp;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.List;
 
-import androidx.recyclerview.widget.RecyclerView;
 import io.oisin.fyp.model.Direction;
 
 public class DirectionsAdapter extends
         RecyclerView.Adapter<DirectionsAdapter.ViewHolder> {
 
     private List<Direction> directions;
+    private Context context;
 
-    public DirectionsAdapter(List<Direction> directions) {
+    public DirectionsAdapter(List<Direction> directions, Context context) {
         this.directions = directions;
+        this.context = context;
     }
 
     @Override
@@ -59,26 +63,52 @@ public class DirectionsAdapter extends
     }
 
     private int getResourceForArrow(String direction) {
-        switch (direction) {
-            case "bear right":
-                return R.drawable.bear_right_arrow;
-            case "bear left":
-                return R.drawable.bear_left_arrow;
-            case "turn right":
-            case "sharp right":
-                return R.drawable.right_arrow;
-            case "turn left":
-            case "sharp left":
-                return R.drawable.left_arrow;
-            case "straight on":
-                return R.drawable.straight_ahead_arrow;
-            case "grab a bike":
-                return R.drawable.bike_rack;
-            case "leave your bike":
-                return R.drawable.empty_bike_rack;
-        }
+        int nightModeFlags =
+                context.getResources().getConfiguration().uiMode &
+                        Configuration.UI_MODE_NIGHT_MASK;
+        if (nightModeFlags == Configuration.UI_MODE_NIGHT_NO) {
+            switch (direction) {
+                case "bear right":
+                    return R.drawable.bear_right_arrow;
+                case "bear left":
+                    return R.drawable.bear_left_arrow;
+                case "turn right":
+                case "sharp right":
+                    return R.drawable.right_arrow;
+                case "turn left":
+                case "sharp left":
+                    return R.drawable.left_arrow;
+                case "straight on":
+                    return R.drawable.straight_ahead_arrow;
+                case "grab a bike":
+                    return R.drawable.bike_rack;
+                case "leave your bike":
+                    return R.drawable.empty_bike_rack;
+            }
 
-        return R.drawable.straight_ahead_arrow;
+            return R.drawable.straight_ahead_arrow;
+        } else {
+            switch (direction) {
+                case "bear right":
+                    return R.drawable.bear_right_arrow_white;
+                case "bear left":
+                    return R.drawable.bear_left_arrow_white;
+                case "turn right":
+                case "sharp right":
+                    return R.drawable.right_arrow_white;
+                case "turn left":
+                case "sharp left":
+                    return R.drawable.left_arrow_white;
+                case "straight on":
+                    return R.drawable.straight_ahead_arrow_white;
+                case "grab a bike":
+                    return R.drawable.bike_rack_white;
+                case "leave your bike":
+                    return R.drawable.empty_bike_rack_white;
+            }
+
+            return R.drawable.straight_ahead_arrow_white;
+        }
     }
 
     @Override

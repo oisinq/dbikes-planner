@@ -9,6 +9,7 @@ import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
@@ -66,7 +67,7 @@ public class FeedbackActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 LinearLayout question = findViewById(R.id.feedback_start_group);
-                question.setVisibility(View.INVISIBLE);
+                question.setVisibility(View.GONE);
             }
         });
 
@@ -85,12 +86,31 @@ public class FeedbackActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 LinearLayout question = findViewById(R.id.feedback_end_group);
-                question.setVisibility(View.INVISIBLE);
+                question.setVisibility(View.GONE);
             }
         });
 
         final Slider startSlider = findViewById(R.id.feedback_start_wait_time);
+        startSlider.addOnChangeListener(new Slider.OnChangeListener(){
+
+            @Override
+            public void onValueChange(@NonNull Slider slider, float value, boolean fromUser) {
+                TextView textView = findViewById(R.id.start_slider_minutes);
+
+                textView.setText((int) value + " minutes");
+            }
+        });
+
         final Slider endSlider = findViewById(R.id.feedback_end_wait_time);
+        endSlider.addOnChangeListener(new Slider.OnChangeListener(){
+
+            @Override
+            public void onValueChange(@NonNull Slider slider, float value, boolean fromUser) {
+                TextView textView = findViewById(R.id.end_slider_minutes);
+
+                textView.setText((int) value + " minutes");
+            }
+        });
 
         Button submitButton = findViewById(R.id.feedback_submit_button);
         submitButton.setOnClickListener(new View.OnClickListener() {

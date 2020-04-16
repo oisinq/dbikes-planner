@@ -1,9 +1,10 @@
 from pygam.datasets import wage
-from pygam import LinearGAM, s, f, te, GammaGAM
+from pygam import LinearGAM, s, f, te
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import datetime
+
 
 def display_bike_availability_over_time(my_data):
     plt.figure()
@@ -15,7 +16,8 @@ def display_bike_availability_over_time(my_data):
     plt.title("Change in availability over time")
 
     plt.show()
-    
+
+
 def display_breakdown():
     for i, term in enumerate(gam.terms):
         if term.isintercept:
@@ -33,13 +35,14 @@ def display_breakdown():
         if i == 0 or i == 1:
             plt.title("Time of day and type of day")
         else:
-            plt.title(attributes[i+1])
+            plt.title(attributes[i + 1])
     plt.show()
+
 
 def test_model(gam):
     # time_of_day,type_of_day,day_of_year,temperature,rain,relative_humidity,vapour_pressure,wind_speed,sunshine,visibility
     # 21: 50625,1,1951425,22,2017-01-22T14:03:45,5.1,0,64,5.6,3,0.7,20000
-    tester = [50625,1,22,5.1,0,64,5.6,3]
+    tester = [50625, 1, 22, 5.1, 0, 64, 5.6, 3]
 
     y_pred = gam.predict([tester])
 
@@ -55,21 +58,26 @@ def test_model(gam):
     # (38 previous)
     # 27,29121,0,22838721,264,11.9,0,69,9.6,4,0.0,60000,-11,1474355121,38,40
 
-    tester = [29121,0,264,11.9,0,69,9.6,4]
+    tester = [29121, 0, 264, 11.9, 0, 69, 9.6, 4]
 
     y_pred = gam.predict([tester])
 
     print(y_pred)
 
-my_data = pd.read_csv("result_charlemount.csv")
 
-attributes = ['time_of_day', 'type_of_day', 'day_of_year', 'temperature', 'rain', 'relative_humidity','wind_speed']
+my_data = pd.read_csv("result_Charlemont Street.csv")
+
+attributes = ['time_of_day', 'type_of_day', 'day_of_year', 'temperature', 'rain', 'relative_humidity',
+              'vapour_pressure', 'wind_speed']
 
 X = my_data[attributes].values
+# Xother = my_data[['time_of_day', 'type_of_day', 'day_of_year', 'temperature']].values
 
 y = my_data['available_bike_stands'].values
 
-gam = GammaGAM(te(0, 1) + s(2) + s(3) + s(4) + s(5) + s(6), n_splines=[35, 20, 20, 10, 20, 10, 25], dtype=['numerical', 'categorical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical'])
+gam = LinearGAM(te(0, 1) + s(2) + s(3) + s(4) + s(5) + s(6) + s(7), n_splines=[25, 10, 10, 10, 10, 10, 10, 10],
+                dtype=['numerical', 'categorical', 'numerical', 'numerical', 'numerical', 'numerical', 'numerical',
+                       'numerical'])
 
 gam.gridsearch(X, y)
 

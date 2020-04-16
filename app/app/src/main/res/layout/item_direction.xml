@@ -27,7 +27,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="4dp"
-                android:textColor="@android:color/black"
+                android:textColor="?android:attr/textColorPrimary"
                 android:text="Turn right on X street"
                 android:textSize="20dp"
                 android:textStyle="bold" />
@@ -36,6 +36,7 @@
                 android:id="@+id/direction_subtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:textColor="?android:attr/textColorPrimary"
                 android:layout_marginLeft="4dp"
                 android:text="300m"
                 android:textSize="16dp" />
