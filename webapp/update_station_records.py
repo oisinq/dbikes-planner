@@ -1,8 +1,7 @@
 import subprocess
 
 import pandas as pd
-from google.cloud import storage, bigquery, bigquery_storage
-import gcsfs
+import datalab.storage as gcs
 from datetime import datetime, time
 
 
@@ -41,16 +40,11 @@ def category(quantity):
 
 
 def update_record(station, weather):
-
     if "/" in station['address']:
-        file_path = 'stations/Princes Street.csv'
+        data = pd.read_csv('gs://dbikes-planner.appspot.com/station_records/Princes Street.csv')
     else:
-        file_path = f'stations/{station["address"]}.csv'
+        data = pd.read_csv(f"gs://dbikes-planner.appspot.com/station_records/{station['address']}.csv")
 
-    f = open(file_path, 'a')
-
-    available_bike_stands = station['available_bike_stands']
-    available_bikes = station['available_bikes']
     epoch_time = station['last_update']
 
     entry_datetime = datetime.fromtimestamp(epoch_time / 1000)
@@ -58,7 +52,6 @@ def update_record(station, weather):
     if is_time_between(time(3, 30), time(5, 0), entry_datetime.time()):
         return
 
-    day_type = ''
     day_index = entry_datetime.weekday()
 
     if day_index <= 4:
@@ -66,12 +59,24 @@ def update_record(station, weather):
     else:
         day_type = 10
 
-    last_line = subprocess.check_output(['tail', '-3', file_path]).decode("utf-8")
+    last_line = data.tail(3).to_csv()
 
     if entry_datetime.isoformat() in last_line:
         return
 
-    f.write(f"{available_bikes},{available_bike_stands},{datetime_to_seconds(entry_datetime)},{day_type},"
-        f"{entry_datetime.timetuple().tm_yday},{entry_datetime.isoformat()},{weather['temperature']},{weather['humidity']},"
-        f",{weather['wind_speed']},{weather['rain']},,{weather['visibility']},"
-        f"{category(available_bikes)},{category(available_bike_stands)},{entry_datetime.timestamp()//3600}\n")
+    new_row = {'available_bikes': station['available_bikes'],
+               'available_bike_stands': station['available_bike_stands'],
+               'time_of_day': datetime_to_seconds(entry_datetime), 'type_of_day': day_type,
+               'day_of_year': entry_datetime.timetuple().tm_yday, 'iso_date': entry_datetime.isoformat(),
+               'temperature': weather['temperature'], 'relative_humidity': weather['humidity'],
+               'wind_speed': weather['wind_speed'], 'rain': weather['rain'], 'visibility': weather['visibility'],
+               'bike_availability': category(station['available_bikes']),
+               'bike_stand_availability': category(station['available_bike_stands']),
+               'unix_timestamp': entry_datetime.timestamp() // 3600}
+
+    new_row_dataframe = pd.DataFrame(new_row, index=[0])
+
+    combined_df = pd.concat([data, new_row_dataframe], ignore_index=True)
+
+    gcs.Bucket('dbikes-planner.appspot.com').item(f'station_records/{station["address"]}.csv')\
+        .write_to(combined_df.to_csv(index=False),'text/csv')

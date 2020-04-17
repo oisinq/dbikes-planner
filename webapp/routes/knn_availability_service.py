@@ -79,11 +79,9 @@ def update_bike_data(current_weather):
 def read_file_for_station(station_name):
     print(f"opening {station_name} {datetime.now()}")
     if "/" in station_name:
-        # data = pd.read_csv('gs://dbikes-planner.appspot.com/stations/Princes Street.csv')
-        data = pd.read_csv(open(f'stations/Princes Street.csv', 'r'))
+        data = pd.read_csv('gs://dbikes-planner.appspot.com/station_records/Princes Street.csv')
     else:
-        # data = pd.read_csv(f"gs://dbikes-planner.appspot.com/stations/{station_name}.csv")
-        data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'))
+        data = pd.read_csv(f"gs://dbikes-planner.appspot.com/station_records/{station_name}.csv")
 
     return data
 
@@ -109,8 +107,8 @@ def get_fitted_bikes_model(station_name):
 
 
 def refresh_data():
+    update_weather()
     if datetime.now().hour >= 5:
-        update_weather()
         update_bike_data(weather)
 
 

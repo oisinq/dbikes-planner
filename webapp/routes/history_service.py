@@ -74,34 +74,8 @@ def generate_history_graph(station_name, mode):
 
     return jsonify(result)
 
-# This route is temporarily needed for backwards compatibility with old versions of the app
+
+# This route is needed for backwards compatibility with old versions of the app
 @routes.route('/history/<station_name>', methods=['GET'])
 def old_generate_history_graph(station_name):
-    if station_name not in station_names:
-        return "Error: Please specify a valid station"
-
-    if "/" in station_name:
-        data = pd.read_csv(open(f'stations/Princes Street.csv', 'r'), usecols=[0, 2, 3])
-    else:
-        data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'), usecols=[0, 2, 3])
-
-    d = datetime.datetime.now()
-
-    if d.isoweekday() in range(1, 6):
-        filtered_data = data[data['type_of_day'] == 0].tail(5000)
-    else:
-        filtered_data = data[data['type_of_day'] == 10].tail(5000)
-
-    x, y = (filtered_data['time_of_day'], filtered_data['available_bikes'])
-    coefficients = np.polyfit(x, y, 50)
-    poly_func = np.poly1d(coefficients)
-
-    new_x = np.linspace(18000, 86400)
-    new_y = poly_func(new_x)
-
-    result = {"graph": []}
-
-    for x_value, y_value in zip(new_x, new_y):
-        result['graph'].append((x_value, y_value))
-
-    return jsonify(result)
+    return generate_history_graph(station_name, 'bikes')
