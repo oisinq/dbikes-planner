@@ -45,9 +45,14 @@ def generate_history_graph(station_name, mode):
         return "Error: Please specify a valid station"
 
     if "/" in station_name:
-        data = pd.read_csv(open(f'stations/Princes Street.csv', 'r'), usecols=[0, 2, 3])
+        data = pd.read_csv('gs://dbikes-planner.appspot.com/station_records/Princes Street.csv', usecols=[0, 2, 3])
     else:
-        data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'), usecols=[0, 2, 3])
+        data = pd.read_csv(f"gs://dbikes-planner.appspot.com/station_records/{station_name}.csv", usecols=[0, 2, 3])
+
+    # if "/" in station_name:
+    #     data = pd.read_csv(open(f'stations/Princes Street.csv', 'r'), usecols=[0, 2, 3])
+    # else:
+    #     data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'), usecols=[0, 2, 3])
 
     d = datetime.datetime.now()
 
