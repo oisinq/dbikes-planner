@@ -45,37 +45,41 @@ def generate_history_graph(station_name, mode):
         return "Error: Please specify a valid station"
 
     if "/" in station_name:
-        data = pd.read_csv('gs://dbikes-planner.appspot.com/station_records/Princes Street.csv', usecols=[0, 2, 3])
+        data = pd.read_csv('gs://dbikes-planner.appspot.com/station_records/Princes Street.csv', usecols=[0, 1, 2, 3, 5])
     else:
-        data = pd.read_csv(f"gs://dbikes-planner.appspot.com/station_records/{station_name}.csv", usecols=[0, 2, 3])
-
-    # if "/" in station_name:
-    #     data = pd.read_csv(open(f'stations/Princes Street.csv', 'r'), usecols=[0, 2, 3])
-    # else:
-    #     data = pd.read_csv(open(f'stations/{station_name}.csv', 'r'), usecols=[0, 2, 3])
+        data = pd.read_csv(f"gs://dbikes-planner.appspot.com/station_records/{station_name}.csv", usecols=[0, 1, 2, 3, 5])
 
     d = datetime.datetime.now()
 
     if d.isoweekday() in range(1, 6):
-        filtered_data = data[data['type_of_day'] == 0].tail(17000)
+        historical_data = data[data['type_of_day'] == 0].tail(17000)
     else:
-        filtered_data = data[data['type_of_day'] == 10].tail(17000)
+        historical_data = data[data['type_of_day'] == 10].tail(17000)
+
+    nov_mask = pd.to_datetime(historical_data['iso_date']).map(lambda x: (x - datetime.datetime(1970, 1, 1)).days) == (datetime.datetime.now() -
+                                                                                                                       datetime.datetime(1970, 1, 1)).days
+    todays_data = historical_data[nov_mask]
 
     if mode == 'bikestands':
-        x, y = (filtered_data['time_of_day'], filtered_data['available_bike_stands'])
+        historical_x, historical_y = (historical_data['time_of_day'], historical_data['available_bike_stands'])
+        today_x, today_y = (todays_data['time_of_day'], todays_data['available_bike_stands'])
     else:
-        x, y = (filtered_data['time_of_day'], filtered_data['available_bikes'])
+        historical_x, historical_y = (historical_data['time_of_day'], historical_data['available_bikes'])
+        today_x, today_y = (todays_data['time_of_day'], todays_data['available_bikes'])
 
-    coefficients = np.polyfit(x, y, 50)
+    coefficients = np.polyfit(historical_x, historical_y, 50)
     poly_func = np.poly1d(coefficients)
 
-    new_x = np.linspace(18000, 86400)
-    new_y = poly_func(new_x)
+    new_historical_x = np.linspace(18000, 86400)
+    new_historical_y = poly_func(new_historical_x)
 
-    result = {"graph": []}
+    result = {"graph": [], "todays_graph": []}
 
-    for x_value, y_value in zip(new_x, new_y):
+    for x_value, y_value in zip(new_historical_x, new_historical_y):
         result['graph'].append((x_value, y_value))
+
+    for x_value, y_value in zip(today_x, today_y):
+        result['todays_graph'].append((x_value, y_value))
 
     return jsonify(result)
 

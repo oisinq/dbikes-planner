@@ -40,6 +40,7 @@ def category(quantity):
 
 
 def update_record(station, weather):
+    print(f"Updating {station['address']}")
     if "/" in station['address']:
         data = pd.read_csv('gs://dbikes-planner.appspot.com/station_records/Princes Street.csv')
     else:
@@ -52,17 +53,17 @@ def update_record(station, weather):
     if is_time_between(time(3, 30), time(5, 0), entry_datetime.time()):
         return
 
+    last_line = data.tail(3).to_csv()
+
+    if entry_datetime.isoformat() in last_line:
+        return
+
     day_index = entry_datetime.weekday()
 
     if day_index <= 4:
         day_type = 0
     else:
         day_type = 10
-
-    last_line = data.tail(3).to_csv()
-
-    if entry_datetime.isoformat() in last_line:
-        return
 
     new_row = {'available_bikes': station['available_bikes'],
                'available_bike_stands': station['available_bike_stands'],
@@ -78,5 +79,5 @@ def update_record(station, weather):
 
     combined_df = pd.concat([data, new_row_dataframe], ignore_index=True)
 
-    gcs.Bucket('dbikes-planner.appspot.com').item(f'station_records/{station["address"]}.csv')\
-        .write_to(combined_df.to_csv(index=False),'text/csv')
+    gcs.Bucket('dbikes-planner.appspot.com').item(f'station_records/{station["address"]}.csv') \
+        .write_to(combined_df.to_csv(index=False), 'text/csv')

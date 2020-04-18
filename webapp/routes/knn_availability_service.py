@@ -41,6 +41,7 @@ weather = {}
 
 
 def update_weather():
+    print("Updating weather data...")
     js = requests.get(
         "https://api.openweathermap.org/data/2.5/weather?lat=53.277717&lon=-6.218428&APPID"
         "=d8d0b9ed5f181cfbdf3330b0037aff7d&units=metric").text
@@ -64,16 +65,18 @@ def update_weather():
     global weather
     weather = parsed_weather
 
+    print("Weather data update complete!")
+
 
 def update_bike_data(current_weather):
     result = pd.read_json(
         "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
 
 
-    #print("Refreshing data...")
-    for _index, row in result.iterrows():
-        update_station_records.update_record(row, current_weather)
-    # print("Data refresh complete")
+    print("Updating bike data...")
+    # for _index, row in result.iterrows():
+    #     update_station_records.update_record(row, current_weather)
+    print("Bike data refresh complete!")
 
 
 def read_file_for_station(station_name):

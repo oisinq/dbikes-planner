@@ -234,9 +234,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 MarkerManager.Collection markerCollection = mClusterManager.getMarkerCollection();
 
                 for (Marker m : markerCollection.getMarkers()) {
-                    if (m.getSnippet().contains("bikes currently available")) {
+                    if (m.getSnippet().contains("bikes currently available"))
                         updateMarkerSnippet(m);
-                    } else {
+                    else {
                         updateMarkerSnippet(m);
                     }
                 }
@@ -244,6 +244,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 if (selectedStation != null) {
                     TextView text = findViewById(R.id.bottom_sheet_byline);
                     text.setText(selectedStation.getSnippet());
+
+                    setUpGraph(selectedStation);
                 }
 
                 mClusterManager.cluster();
@@ -999,13 +1001,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    @Override
-    public boolean onMarkerClick(final Marker marker) {
-        if (marker.getTitle() == null) return false;
+    private String getGraphURL(Marker marker) {
+        if (marker.getSnippet().contains("spaces")) {
+            return marker.getTitle().contains("/") ? "https://dbikes-planner." +
+                    "appspot.com/history/Princes Street/bikestands" :
+                    "https://dbikes-planner.appspot.com/history/" + marker.getTitle() + "/bikestands";
+        } else {
+            return marker.getTitle().contains("/") ? "https://dbikes-planner." +
+                    "appspot.com/history/Princes Street/bikes" :
+                    "https://dbikes-planner.appspot.com/history/" + marker.getTitle() + "/bikes";
+        }
+    }
 
-        String url = marker.getTitle().contains("/") ? "https://dbikes-planner." +
-                "appspot.com/history/Princes Street" :
-                "https://dbikes-planner.appspot.com/history/" + marker.getTitle() + "";
+    private void setUpGraph(final Marker marker) {
+        String url = getGraphURL(marker);
 
         clearGraph();
 
@@ -1015,9 +1024,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     @Override
                     public void onResponse(String response) {
                         try {
-                            JSONArray graphPoints = new JSONObject(response).getJSONArray("graph");
+                            JSONObject responseJSON = new JSONObject(response);
 
-                            setUpGraph(graphPoints, marker);
+                            displayGraph(responseJSON, marker);
 
                         } catch (JSONException e) {
                             e.printStackTrace();
@@ -1030,6 +1039,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
 
         queue.add(stringRequest);
+    }
+
+    @Override
+    public boolean onMarkerClick(final Marker marker) {
+        if (marker.getTitle() == null) return false;
+
+        setUpGraph(marker);
 
         findViewById(R.id.route_layout_contents).setVisibility(View.GONE);
         findViewById(R.id.station_layout_contents).setVisibility(View.VISIBLE);
@@ -1061,9 +1077,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private void clearGraph() {
         LineChart chart = findViewById(R.id.availability_chart);
         chart.clear();
+
+        chart.setNoDataText("Loading graph...");
     }
 
-    private void setUpGraph(JSONArray points, Marker marker) throws JSONException {
+    private void displayGraph(JSONObject response, Marker marker) throws JSONException {
         LineChart chart = findViewById(R.id.availability_chart);
 
         chart.setBackgroundColor(Color.WHITE);
@@ -1096,36 +1114,78 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         yAxis.setGranularityEnabled(true);
         yAxis.setYOffset(-9f);
         yAxis.setTextColor(Color.rgb(255, 192, 56));
-
         yAxis.setAxisMinimum(0);
-        yAxis.setAxisMaximum(getMarkerTotalSpaces(marker));
+        yAxis.setAxisMaximum(getMarkerTotalSpaces(marker)+5);
 
         YAxis rightAxis = chart.getAxisRight();
         rightAxis.setEnabled(false);
 
-        ArrayList<Entry> values = new ArrayList<>();
+        ArrayList<Entry> historical_values = new ArrayList<>();
+        ArrayList<Entry> todays_values = new ArrayList<>();
 
-        for (int i = 0; i < points.length(); i++) {
-            JSONArray currentPoints = points.getJSONArray(i);
+        JSONArray historical_points = response.getJSONArray("graph");
+        JSONArray todays_points = response.getJSONArray("todays_graph");
 
-            values.add(new Entry((float) currentPoints.getDouble(0), (float) currentPoints.getDouble(1)));
+        for (int i = 0; i < historical_points.length(); i++) {
+            JSONArray currentPoints = historical_points.getJSONArray(i);
+
+            historical_values.add(new Entry((float) currentPoints.getDouble(0), (float) currentPoints.getDouble(1)));
         }
 
-        LineDataSet set1 = new LineDataSet(values, "Bike availability");
-        set1.setAxisDependency(YAxis.AxisDependency.LEFT);
-        set1.setColor(ColorTemplate.getHoloBlue());
-        set1.setValueTextColor(ColorTemplate.getHoloBlue());
-        set1.setLineWidth(1.5f);
-        set1.setDrawCircles(false);
-        set1.setDrawValues(false);
-        set1.setFillAlpha(65);
-        set1.setFillColor(ColorTemplate.getHoloBlue());
-        set1.setHighLightColor(Color.rgb(244, 117, 117));
-        set1.setDrawCircleHole(false);
-        set1.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+        for (int i = 0; i < todays_points.length(); i++) {
+            JSONArray currentPoints = todays_points.getJSONArray(i);
 
-        LineData lineData = new LineData(set1);
-        chart.setData(lineData);
+            todays_values.add(new Entry((float) currentPoints.getDouble(0), (float) currentPoints.getDouble(1)));
+        }
+
+        String label;
+
+        if (marker.getSnippet().contains("spaces")) {
+            label = "Average space availability";
+        } else {
+            label = "Average bike availability";
+        }
+
+        LineDataSet historicalSet = new LineDataSet(historical_values, label);
+        historicalSet.setAxisDependency(YAxis.AxisDependency.LEFT);
+        historicalSet.setColor(ColorTemplate.getHoloBlue());
+        historicalSet.setValueTextColor(ColorTemplate.getHoloBlue());
+        historicalSet.setLineWidth(1.5f);
+        historicalSet.setDrawCircles(false);
+        historicalSet.setDrawValues(false);
+        historicalSet.setFillAlpha(65);
+        historicalSet.setFillColor(ColorTemplate.getHoloBlue());
+        historicalSet.setHighLightColor(Color.rgb(244, 117, 117));
+        historicalSet.setDrawCircleHole(false);
+        historicalSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+
+        if (marker.getSnippet().contains("spaces")) {
+            label = "Today's space availability";
+        } else {
+            label = "Today's bike availability";
+        }
+
+        LineDataSet todaysSet = new LineDataSet(todays_values, label);
+        todaysSet.setAxisDependency(YAxis.AxisDependency.LEFT);
+        todaysSet.setColor(ColorTemplate.rgb("#f72d2d"));
+        todaysSet.setValueTextColor(ColorTemplate.rgb("#f72d2d"));
+        todaysSet.setLineWidth(1.5f);
+        todaysSet.setDrawCircles(false);
+        todaysSet.setDrawValues(false);
+        todaysSet.setFillAlpha(65);
+        todaysSet.setFillColor(ColorTemplate.getHoloBlue());
+        todaysSet.setHighLightColor(Color.rgb(244, 117, 117));
+        todaysSet.setDrawCircleHole(false);
+        todaysSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+
+        ArrayList<LineDataSet> lines = new ArrayList<> ();
+        lines.add(historicalSet);
+        lines.add(todaysSet);
+
+        chart.setData(new LineData(historicalSet, todaysSet));
+
+       // chart.setData(lineData);
+       // chart.setData(todaysLineData);
         chart.invalidate();
     }
 
