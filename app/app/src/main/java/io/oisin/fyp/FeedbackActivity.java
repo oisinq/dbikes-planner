@@ -149,6 +149,8 @@ public class FeedbackActivity extends AppCompatActivity {
     private JsonObjectRequest generateJSONRequest(final JSONObject result) throws JSONException {
         String url ="https://dbikes-planner.appspot.com/feedback/" + route.getString("id");
 
+        url = url.replace(" ", "%20");
+
         return new JsonObjectRequest(Request.Method.POST,
                 url, result,
                 new Response.Listener<JSONObject>() {

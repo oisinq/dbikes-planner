@@ -485,7 +485,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         String url = "https://dbikes-planner.appspot.com/route?start=" + start + "&end="
                 + end + "&minutes=" + minutes;
 
-        StringRequest stringRequest = getRouteRequest(url);
+        StringRequest stringRequest = getRouteRequest(url.replace(" ", "%20"));
 
         stringRequest.setRetryPolicy(new DefaultRetryPolicy( 50000, 5, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
@@ -1051,7 +1051,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void setUpGraph(final Marker marker) {
-        String url = getGraphURL(marker);
+        String url = getGraphURL(marker).replace(" ", "%20");
 
         clearGraph();
 
@@ -1081,6 +1081,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public boolean onMarkerClick(final Marker marker) {
         if (marker.getTitle() == null) return false;
+
+        if (marker.equals(selectedStation)) return true;
 
         setUpGraph(marker);
 
