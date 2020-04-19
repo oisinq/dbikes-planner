@@ -16,10 +16,15 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Display;
+import android.view.KeyCharacterMap;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewTreeObserver;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -130,7 +135,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private StationClusterItem mRouteEndStation;
     private List<Marker> routeMarkers = new ArrayList<>();
     private RecyclerView recyclerView;
-
+    private boolean notificationSent = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -152,11 +157,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setUpAutocomplete();
         setUpBottomSheet();
         setUpStationTypeButtons();
+    }
 
-        if (ViewConfiguration.get(getApplicationContext()).hasPermanentMenuKey()) {
-            View bottomSheet = findViewById(R.id.route_bottom_sheet);
-            BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-            bottomSheetBehavior.setPeekHeight(225);
+    @Override
+    public void onBackPressed() {
+        View bottomSheet = findViewById(R.id.route_bottom_sheet);
+        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+
+        if (bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_COLLAPSED) {
+            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+        } else if (bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_EXPANDED) {
+            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+        } else {
+            super.onBackPressed();
         }
     }
 
@@ -689,6 +702,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setJourneySubtitleText(quietestCycleRouteType);
         setJourneyDetailsText(quietestCycleRouteType);
 
+        notificationSent = false;
+
         // Sets up the recycler view to display the directions
         DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections(), getApplicationContext());
         recyclerView = findViewById(R.id.bottom_sheet_recycler);
@@ -725,6 +740,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         FloatingActionButton navigationFab = findViewById(R.id.navigation_fab);
         navigationFab.setVisibility(View.VISIBLE);
 
+
         navigationFab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -738,7 +754,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
 
-                scheduleNotification(10000, (int)System.currentTimeMillis(), route);
+                if (!notificationSent) {
+                    scheduleNotification(10000, (int)System.currentTimeMillis(), route);
+                    notificationSent = true;
+                }
+
             }
         });
     }
@@ -1072,11 +1092,63 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         queue.add(stringRequest);
     }
 
+    public boolean hasSoftKeys(WindowManager windowManager){
+        boolean hasSoftwareKeys = true;
+        //c = context; use getContext(); in fragments, and in activities you can
+        //directly access the windowManager();
+
+        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.JELLY_BEAN_MR1){
+            Display d = getWindowManager().getDefaultDisplay();
+
+            DisplayMetrics realDisplayMetrics = new DisplayMetrics();
+            d.getRealMetrics(realDisplayMetrics);
+
+            int realHeight = realDisplayMetrics.heightPixels;
+            int realWidth = realDisplayMetrics.widthPixels;
+
+            DisplayMetrics displayMetrics = new DisplayMetrics();
+            d.getMetrics(displayMetrics);
+
+            int displayHeight = displayMetrics.heightPixels;
+            int displayWidth = displayMetrics.widthPixels;
+
+            hasSoftwareKeys =  (realWidth - displayWidth) > 0 ||
+                    (realHeight - displayHeight) > 0;
+        } else {
+            boolean hasMenuKey = ViewConfiguration.get(getApplicationContext()).hasPermanentMenuKey();
+            boolean hasBackKey = KeyCharacterMap.deviceHasKey(KeyEvent.KEYCODE_BACK);
+            hasSoftwareKeys = !hasMenuKey && !hasBackKey;
+        }
+        return hasSoftwareKeys;
+    }
+
     @Override
     public boolean onMarkerClick(final Marker marker) {
         View bottomSheet = findViewById(R.id.route_bottom_sheet);
-        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+        final BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
         bottomSheetBehavior.setDraggable(true);
+
+        if (!hasSoftKeys(getWindowManager())) {
+            // Sets the bottom sheet to hide the directions part of the bottom sheet
+            bottomSheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    LinearLayout layout = findViewById(R.id.station_layout_contents);
+
+                    layout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    View titleBlock = layout.getChildAt(0);
+                    bottomSheetBehavior.setPeekHeight(titleBlock.getBottom());
+                }
+            });
+        }
+
+        View stationTitle = findViewById(R.id.station_title_section);
+        stationTitle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            }
+        });
 
         if (marker.getTitle() == null) return false;
 

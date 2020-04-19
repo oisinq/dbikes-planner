@@ -17,11 +17,8 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical">
                 <LinearLayout
+                    android:id="@+id/station_title_section"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@color/colorAccent"
@@ -57,7 +54,6 @@
                     android:id="@+id/availability_chart"
                     android:layout_width="match_parent"
                     android:layout_height="250dp" />
-            </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
