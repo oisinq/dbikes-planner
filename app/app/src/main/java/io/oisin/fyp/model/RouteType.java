@@ -9,17 +9,21 @@ import java.util.List;
  */
 public class RouteType {
     private Polyline polyline;
-    private double distance;
-    private double duration;
+    private double cyclingDistance;
+    private double walkingDistance;
+    private double cyclingDuration;
+    private double walkingDuration;
     private double calories;
     private double co2saved;
     private List<Direction> directions;
 
-    public RouteType(Polyline polyline, double distance, double duration, double calories,
-                     double co2saved, List<Direction> directions) {
+    public RouteType(Polyline polyline, double cyclingDistance, double walkingDistance, double cyclingDuration,
+                     double walkingDuration, double calories, double co2saved, List<Direction> directions) {
         this.polyline = polyline;
-        this.distance = distance;
-        this.duration = duration;
+        this.cyclingDistance = cyclingDistance;
+        this.walkingDistance = walkingDistance;
+        this.cyclingDuration = cyclingDuration;
+        this.walkingDuration = walkingDuration;
         this.calories = calories;
         this.co2saved = co2saved;
         this.directions = directions;
@@ -29,12 +33,28 @@ public class RouteType {
         return polyline;
     }
 
-    public double getDistance() {
-        return distance;
+    public double getCyclingDistance() {
+        return cyclingDistance;
     }
 
-    public double getDuration() {
-        return duration;
+    public double getWalkingDistance() {
+        return walkingDistance;
+    }
+
+    public double getTotalDistance() {
+        return walkingDistance + cyclingDistance;
+    }
+
+    public double getCyclingDuration() {
+        return cyclingDuration;
+    }
+
+    public double getWalkingDuration() {
+        return walkingDuration;
+    }
+
+    public double getTotalDuration() {
+        return walkingDuration + cyclingDuration;
     }
 
     public double getCalories() {

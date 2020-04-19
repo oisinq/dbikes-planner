@@ -4,3 +4,5 @@ webapp/.venv/
 __pycache__/
 .idea/
 venv/
+app/app/release/app-release.apk
+app/app/release/*

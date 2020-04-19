@@ -167,6 +167,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             case Configuration.UI_MODE_NIGHT_YES:
                 style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_dark);
                 break;
+            default:
+                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_light);
+                break;
         }
         mMap.setMapStyle(style);
 
@@ -186,11 +189,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         int currentNightMode = getApplicationContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         switch (currentNightMode) {
-            case Configuration.UI_MODE_NIGHT_NO:
-                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_light);
-                break;
             case Configuration.UI_MODE_NIGHT_YES:
                 style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_dark);
+                break;
+            default:
+                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_light);
                 break;
         }
         mMap.setMapStyle(style);
@@ -533,6 +536,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if (!routeLines.contains(routeType.getPolyline())) {
             setJourneyTitleText(routeType);
             setJourneySubtitleText(routeType);
+            setJourneyDetailsText(routeType);
 
             routeType.getPolyline().setVisible(true);
             routeLines.add(routeType.getPolyline());
@@ -542,21 +546,40 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    //todo: These times don't take into account the walking distance currently.
     private void setJourneyTitleText(RouteType routeType) {
         TextView titleText = findViewById(R.id.route_bottom_sheet_title);
 
-        if (routeType.getDistance() < 1000) {
-            titleText.setText(Math.round(routeType.getDuration() / 60) + " mins (" + routeType.getDistance() + "m)");
+        if (routeType.getTotalDistance() < 1000) {
+            titleText.setText(Math.round(routeType.getTotalDuration() / 60) + " mins (" + Math.round(routeType.getTotalDistance()/10.0) * 10 + "m)");
         } else {
-            titleText.setText(Math.round(routeType.getDuration() / 60) + " mins (" + Math.round(routeType.getDistance() / 100) / 10.0 + "km)");
+            titleText.setText(Math.round(routeType.getTotalDuration() / 60) + " mins (" + Math.round(routeType.getTotalDistance() / 100) / 10.0 + "km)");
         }
     }
 
     private void setJourneySubtitleText(RouteType routeType) {
-        TextView titleText = findViewById(R.id.route_bottom_sheet_subtitle);
+        TextView subtitleText = findViewById(R.id.route_bottom_sheet_subtitle);
 
-        titleText.setText(routeType.getCalories() + " calories burnt – " + routeType.getCo2saved() + "g of CO2 saved");
+        String result = "Cyling for ";
+        if (routeType.getCyclingDistance() < 1000) {
+            result += Math.round(routeType.getCyclingDuration() / 60) + " mins (" + Math.round(routeType.getCyclingDistance()/10.0) * 10 + "m)";
+        } else {
+            result += Math.round(routeType.getCyclingDuration() / 60) + " mins (" + Math.round(routeType.getCyclingDistance() / 100) / 10.0 + "km)";
+        }
+
+        result += "\nWalking for ";
+        if (routeType.getWalkingDistance() < 1000) {
+            result += Math.round(routeType.getWalkingDuration() / 60) + " mins (" + Math.round(routeType.getWalkingDistance()/10.0) * 10 + "m)";
+        } else {
+            result += Math.round(routeType.getWalkingDuration() / 60) + " mins (" + Math.round(routeType.getWalkingDistance() / 100) / 10.0 + "km)";
+        }
+
+        subtitleText.setText(result);
+    }
+
+    private void setJourneyDetailsText(RouteType routeType) {
+        TextView subtitleText = findViewById(R.id.route_bottom_sheet_details);
+
+        subtitleText.setText(routeType.getCalories() + " calories burnt – " + routeType.getCo2saved() + "g of CO2 saved");
     }
 
     private void deleteRoute() {
@@ -646,19 +669,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         JSONObject quietestCycleRoute = route.getJSONObject("quietest_cycle_route");
         JSONObject fastestCycleRoute = route.getJSONObject("fastest_cycle_route");
         JSONObject shortestCycleRoute = route.getJSONObject("shortest_cycle_route");
-        String startStationName = route.getString("start_station");
-        String endStationName = route.getString("end_station");
 
         // Extracts the route types from the JSONObjects
-        quietestCycleRouteType = extractRouteType(quietestCycleRoute, startStationName, endStationName);
-        fastestCycleRouteType = extractRouteType(fastestCycleRoute, startStationName, endStationName);
-        shortestCycleRouteType = extractRouteType(shortestCycleRoute, startStationName, endStationName);
+        quietestCycleRouteType = extractRouteType(quietestCycleRoute, route);
+        fastestCycleRouteType = extractRouteType(fastestCycleRoute, route);
+        shortestCycleRouteType = extractRouteType(shortestCycleRoute, route);
     }
 
     private void setUpRouteBottomSheet(JSONObject route) {
         // Sets up the bottom sheet title
         setJourneyTitleText(quietestCycleRouteType);
         setJourneySubtitleText(quietestCycleRouteType);
+        setJourneyDetailsText(quietestCycleRouteType);
 
         // Sets up the recycler view to display the directions
         DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections(), getApplicationContext());
@@ -677,6 +699,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         setUpNavigationFAB(bottomSheetBehavior, route);
 
+        // Sets the bottom sheet to hide the directions part of the bottom sheet
         bottomSheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
@@ -684,7 +707,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 bottomSheetBehavior.setDraggable(false);
 
                 layout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                View hidden = layout.getChildAt(2);
+                View hidden = layout.getChildAt(3);
                 bottomSheetBehavior.setPeekHeight(hidden.getBottom());
             }
         });
@@ -789,17 +812,30 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return directions;
     }
 
-    private RouteType extractRouteType(JSONObject route, String startStation, String endStation) throws JSONException {
-        JSONObject object = getAttributesOfCyclePath(route);
+    private RouteType extractRouteType(JSONObject cyclingRoute, JSONObject fullRoute) throws JSONException {
+        JSONObject object = getAttributesOfCyclePath(cyclingRoute);
 
-        double distance = Double.parseDouble(object.getString("length"));
-        double duration = Double.parseDouble(object.getString("time"));
+        String startStation = fullRoute.getString("start_station");
+        String endStation = fullRoute.getString("end_station");
+        JSONObject startWalkingRouteSummary = fullRoute.getJSONObject("start_walking_route").getJSONArray("features").getJSONObject(0).getJSONObject("properties").getJSONObject("summary");
+        JSONObject endWalkingRouteSummary = fullRoute.getJSONObject("end_walking_route").getJSONArray("features").getJSONObject(0).getJSONObject("properties").getJSONObject("summary");
+
+        double cyclingDistance = Double.parseDouble(object.getString("length"));
+        //features[0].properties.summary.distance
+        double walkingDistance = startWalkingRouteSummary.getDouble("distance");
+        walkingDistance += endWalkingRouteSummary.getDouble("distance");
+
+        double walkingDuration = startWalkingRouteSummary.getDouble("duration");
+        walkingDuration += endWalkingRouteSummary.getDouble("duration");
+
+        double cyclingDuration = Double.parseDouble(object.getString("time"));
         double calories = Double.parseDouble(object.getString("calories"));
         double co2saved = Double.parseDouble(object.getString("grammesCO2saved"));
+        List<Direction> directions = getDirectionsForRoute(cyclingRoute, startStation, endStation);
 
-        Polyline line = mMap.addPolyline(getCycleRouteLine(route).visible(false));
+        Polyline line = mMap.addPolyline(getCycleRouteLine(cyclingRoute).visible(false));
 
-        return new RouteType(line, distance, duration, calories, co2saved, getDirectionsForRoute(route, startStation, endStation));
+        return new RouteType(line, cyclingDistance, walkingDistance, cyclingDuration, walkingDuration, calories, co2saved, directions);
     }
 
     private JSONObject getAttributesOfCyclePath(JSONObject route) throws JSONException {
@@ -964,13 +1000,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private void enableMyLocation() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
-            mMap.setMyLocationEnabled(true);
-            mMap.getUiSettings().setMyLocationButtonEnabled(true);
-            mMap.getUiSettings().setMapToolbarEnabled(false);
 
             LocationSource locationSource = new MockedLocationSource();
 
             mMap.setLocationSource(locationSource);
+
+            mMap.setMyLocationEnabled(true);
+            mMap.getUiSettings().setMyLocationButtonEnabled(true);
+            mMap.getUiSettings().setMapToolbarEnabled(false);
 
             // This moves the camera to Charlemont. This is hard-coded because we are spoofing the location currently.
             LatLng coordinates = new LatLng(53.330667, -6.258590);
