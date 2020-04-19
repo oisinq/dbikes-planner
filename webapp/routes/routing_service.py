@@ -69,7 +69,7 @@ station_tree = None
 
 
 def find_best_station(location, request_type, minutes):
-    closest_start_stations = station_tree.query(location, k=3)
+    closest_start_stations = station_tree.query(location, k=3, p=3)
     hierarchy = ['high', 'moderate', 'low', 'very low', 'empty']
 
     # NOTE: Don't mix up the index with the "Number" attribute in the DataFrame. They don't match up.
@@ -196,7 +196,6 @@ def refresh_bikes():
     global station_list
     station_list = pd.read_json(
         "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
-    station_list = station_list.sort_values(by='number')
 
     coordinate_list = []
 
