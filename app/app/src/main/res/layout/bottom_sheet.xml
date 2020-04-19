@@ -16,9 +16,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:visibility="gone">
-        <androidx.core.widget.NestedScrollView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -52,15 +50,14 @@
                 <fragment
                     android:id="@+id/streetviewpanorama"
                     android:layout_width="match_parent"
-                    android:layout_height="250dp"
+                    android:layout_height="200dp"
                     class="com.google.android.gms.maps.SupportStreetViewPanoramaFragment" />
 
                 <com.github.mikephil.charting.charts.LineChart
                     android:id="@+id/availability_chart"
                     android:layout_width="match_parent"
-                    android:layout_height="300dp" />
+                    android:layout_height="250dp" />
             </LinearLayout>
-        </androidx.core.widget.NestedScrollView>
     </LinearLayout>
 
     <LinearLayout

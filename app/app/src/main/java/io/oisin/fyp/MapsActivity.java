@@ -18,6 +18,7 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.EditText;
@@ -151,6 +152,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setUpAutocomplete();
         setUpBottomSheet();
         setUpStationTypeButtons();
+
+        if (ViewConfiguration.get(getApplicationContext()).hasPermanentMenuKey()) {
+            View bottomSheet = findViewById(R.id.route_bottom_sheet);
+            BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+            bottomSheetBehavior.setPeekHeight(225);
+        }
     }
 
     @Override
@@ -733,19 +740,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 scheduleNotification(10000, (int)System.currentTimeMillis(), route);
             }
-
-//            private void saveRouteAsFile(JSONObject route) throws JSONException, IOException {
-//                String filename = route.getString("id") + ".json";
-//
-//                File file = new File(getApplicationContext().getFilesDir(), filename);
-//
-//                FileOutputStream stream = new FileOutputStream(file);
-//                try {
-//                    stream.write(route.toString().getBytes());
-//                } finally {
-//                    stream.close();
-//                }
-//            }
         });
     }
 
@@ -1080,18 +1074,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public boolean onMarkerClick(final Marker marker) {
+        View bottomSheet = findViewById(R.id.route_bottom_sheet);
+        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+        bottomSheetBehavior.setDraggable(true);
+
         if (marker.getTitle() == null) return false;
 
-        if (marker.equals(selectedStation)) return true;
+        if (marker.equals(selectedStation)) {
+            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+            return true;
+        }
 
         setUpGraph(marker);
 
         findViewById(R.id.route_layout_contents).setVisibility(View.GONE);
         findViewById(R.id.station_layout_contents).setVisibility(View.VISIBLE);
-
-        View bottomSheet = findViewById(R.id.route_bottom_sheet);
-        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-        bottomSheetBehavior.setDraggable(true);
 
         TextView title = findViewById(R.id.bottom_sheet_title);
         title.setText(marker.getTitle());
