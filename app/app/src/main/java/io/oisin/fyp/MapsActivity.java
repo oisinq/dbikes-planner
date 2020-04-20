@@ -13,6 +13,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -60,6 +61,8 @@ import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.github.mikephil.charting.utils.ColorTemplate;
 import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -83,6 +86,8 @@ import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.RoundCap;
 import com.google.android.gms.maps.model.StreetViewSource;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.places.api.Places;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.api.model.RectangularBounds;
@@ -125,7 +130,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private StreetViewPanorama mStreetViewPanorama;
     private ClusterManager<StationClusterItem> mClusterManager;
     private Marker selectedStation;
-    private Configuration configuration;
     private RequestQueue queue;
     private Map<String, StationClusterItem> clusterItems = new HashMap<>();
     private Set<Polyline> routeLines = new HashSet<>();
@@ -136,6 +140,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private List<Marker> routeMarkers = new ArrayList<>();
     private RecyclerView recyclerView;
     private boolean notificationSent = false;
+    private FusedLocationProviderClient mFusedLocationProviderClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -157,6 +162,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setUpAutocomplete();
         setUpBottomSheet();
         setUpStationTypeButtons();
+
+        mFusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
     }
 
     @Override
@@ -496,7 +503,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         routeMarkers.add(mMap.addMarker(new MarkerOptions().position(place.getLatLng()).icon(BitmapDescriptorFactory.defaultMarker(150.0f))));
 
-        String start = "53.330667,-6.258590";
+        //String start = "53.330667,-6.258590";
+        String start = mMap.getMyLocation().getLatitude() + "," + mMap.getMyLocation().getLongitude();
 
         //todo: This settings lets us use our real location. Not currently being used.
         // String start = + location.getLatitude() + "," + location.getLongitude();
@@ -1017,15 +1025,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             LocationSource locationSource = new MockedLocationSource();
 
-            mMap.setLocationSource(locationSource);
+            //mMap.setLocationSource(locationSource);
 
             mMap.setMyLocationEnabled(true);
             mMap.getUiSettings().setMyLocationButtonEnabled(true);
             mMap.getUiSettings().setMapToolbarEnabled(false);
 
-            // This moves the camera to Charlemont. This is hard-coded because we are spoofing the location currently.
-            LatLng coordinates = new LatLng(53.330667, -6.258590);
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(coordinates, 16f));
+            zoomToDeviceLocation();
         } else {
             //todo: Show rationale and request permission.
             ActivityCompat.requestPermissions(this,
@@ -1035,7 +1041,32 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             LatLng cityCentre = new LatLng(53.3498, -6.2603);
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(cityCentre, 16f));
         }
+
+        zoomToDeviceLocation();
     }
+
+    private void zoomToDeviceLocation() {
+        try {
+            if (mMap.isMyLocationEnabled()) {
+                Task locationResult = mFusedLocationProviderClient.getLastLocation();
+                locationResult.addOnCompleteListener(this, new OnCompleteListener() {
+                    @Override
+                    public void onComplete(@NonNull Task task) {
+                        if (task.isSuccessful()) {
+                            // Set the map's camera position to the current location of the device.
+                            Location mLastKnownLocation = (Location) task.getResult();
+                            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                                    new LatLng(mLastKnownLocation.getLatitude(),
+                                            mLastKnownLocation.getLongitude()), 14f));
+                        }
+                    }
+                });
+            }
+        } catch(SecurityException e)  {
+            Log.e("Exception: %s", e.getMessage());
+        }
+    }
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
@@ -1146,7 +1177,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         stationTitle.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                if (bottomSheetBehavior.getState() == BottomSheetBehavior.STATE_EXPANDED) {
+                    bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+                } else {
+                    bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                }
             }
         });
 
