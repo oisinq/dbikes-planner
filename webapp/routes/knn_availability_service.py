@@ -74,8 +74,8 @@ def update_bike_data(current_weather):
 
 
     print("Updating bike data...")
-    # for _index, row in result.iterrows():
-    #     update_station_records.update_record(row, current_weather)
+    for _index, row in result.iterrows():
+        update_station_records.update_record(row, current_weather)
     print("Bike data refresh complete!")
 
 
