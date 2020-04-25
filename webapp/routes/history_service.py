@@ -13,6 +13,7 @@ import threading
 import time
 import requests
 
+#todo: might be able to get rid of this
 station_names = ['Smithfield North', 'Parnell Square North', 'Clonmel Street', 'Avondale Road', 'Mount Street Lower',
                  'Christchurch Place', 'Grantham Street', 'Pearse Street', 'York Street East', 'Excise Walk',
                  'Fitzwilliam Square West', 'Portobello Road', 'St. James Hospital (Central)', 'Parnell Street',
@@ -56,6 +57,7 @@ def generate_history_graph(station_name, mode):
     else:
         historical_data = data[data['type_of_day'] == 10].tail(17000)
 
+    #todo: rename variable
     nov_mask = pd.to_datetime(historical_data['iso_date']).map(lambda x: (x - datetime.datetime(1970, 1, 1)).days) == (datetime.datetime.now() -
                                                                                                                        datetime.datetime(1970, 1, 1)).days
     todays_data = historical_data[nov_mask]
@@ -70,7 +72,7 @@ def generate_history_graph(station_name, mode):
     coefficients = np.polyfit(historical_x, historical_y, 50)
     poly_func = np.poly1d(coefficients)
 
-    new_historical_x = np.linspace(18000, 86400)
+    new_historical_x = np.linspace(18000, 86400) # explain
     new_historical_y = poly_func(new_historical_x)
 
     result = {"graph": [], "todays_graph": []}

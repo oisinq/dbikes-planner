@@ -153,6 +153,7 @@ def predict_availability(station, minutes, type):
     return {"prediction": prediction[0], "probabilities": probs}
 
 
+#todo: combine these two methods
 @routes.route('/predict/bikes', methods=['GET'])
 def predict_bike_availability_route():
     #print("predicting availability lets goooo")

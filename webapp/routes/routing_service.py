@@ -1,16 +1,14 @@
 import threading
-import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
-from apscheduler.schedulers.background import BackgroundScheduler
 from google.cloud import datastore
 
 from . import routes
 from . import knn_availability_service
 import flask
 import geopy.distance
-from flask import request, jsonify, url_for
+from flask import request, jsonify
 from scipy import spatial
 import requests
 import uuid
@@ -77,6 +75,8 @@ def find_best_station(location, request_type, minutes):
     best_station = station_list.iloc[first_station_index]
     results = []
 
+    suitable_stations = []
+
     for index, station_index in enumerate(closest_start_stations[1]):
         station = station_list.iloc[station_index]
 
@@ -84,18 +84,21 @@ def find_best_station(location, request_type, minutes):
 
         distance = geopy.distance.distance(location, (station['position']['lat'], station['position']['lng']))
 
-        prediction_response = predict_station(station_list.iloc[station_index], int(float(minutes) + (distance.m / 84)),
+        prediction_response = predict_station(station, int(float(minutes) + (distance.m / 84)),
                                               request_type) # 84 metres per minute == 1.4 m/s, which is the average urban walking speed
 
         availability = prediction_response['prediction']
 
         results.append(prediction_response)
-        # todo: add a "very high" availability & take it into account if we jump between "very high" and "empty"
-        # todo: also look into normalising data
 
-        # todo: quickfix this
-        if availability == 'high':  # if a station has high availability, we return now because it's the closest
-            return station_list.iloc[station_index]
+        if availability == 'high' or (availability == 'moderate' and not is_peak_time(trip_time)):
+            if request_type == 'bikes':
+                return station
+            else:
+                suitable_stations.append(station)
+
+    if len(suitable_stations) > 0:
+        #todo
 
     # This picks the best station from the outputs (ignoring distance, since k=3)
     for level_index, level in enumerate(hierarchy[1:]):  # Ignores 'high', because of the previous if
@@ -111,6 +114,14 @@ def find_best_station(location, request_type, minutes):
 
     return best_station
 
+def is_peak_time(selected_time):
+    if selected_time.hour >= 8 and selected_time.hour <= 10:
+        return True
+
+    if selected_time.hour >= 16 and selected_time.hour <= 18:
+        return True
+
+    return False
 
 @routes.route('/route', methods=['GET'])
 def generate_route():
@@ -135,6 +146,7 @@ def generate_route():
 
     start_station = find_best_station(start_location, 'bikes', minutes)
 
+    # todo: this minutes amount should be more than minutes, add time to the minutes based off the distance at a cycling speed
     end_station = find_best_station(end_location, 'bikestands', minutes)
 
     quietest_cycle_route_json = requests.get(
@@ -143,6 +155,8 @@ def generate_route():
         get_cycle_streets_url(start_station['position'], end_station['position'], 'fastest'))
     shortest_cycle_route_json = requests.get(
         get_cycle_streets_url(start_station['position'], end_station['position'], 'shortest'))
+    balanced_cycle_route_json = requests.get(
+        get_cycle_streets_url(start_station['position'], end_station['position'], 'balanced'))
 
     start_walking_route_json = requests.get(get_walking_route_url(start_location, start_station['position']))
 
@@ -156,7 +170,8 @@ def generate_route():
 
     result = jsonify({"start_walking_route": start_walking_route_json.json(), "shortest_cycle_route":
         shortest_cycle_route_json.json(), "fastest_cycle_route": fastest_cycle_route_json.json(),
-                    "quietest_cycle_route": quietest_cycle_route_json.json(), "end_walking_route":
+                    "quietest_cycle_route": quietest_cycle_route_json.json(), "balanced_cycle_route":
+                          balanced_cycle_route_json.json(), "end_walking_route":
                         end_walking_route_json.json(), "start_station": start_station['address'],
                     "end_station": end_station['address'], "id": uuid.uuid4()})
 

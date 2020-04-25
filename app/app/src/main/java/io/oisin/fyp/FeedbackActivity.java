@@ -44,7 +44,7 @@ public class FeedbackActivity extends AppCompatActivity {
             TextView endQuestion = findViewById(R.id.feedback_end_question);
 
             startQuestion.setText("Was there a queue for bikes at the " + startStation + " station?");
-            endQuestion.setText("Was there a queue for bikes at the " + endStation + " station?");
+            endQuestion.setText("Was there a queue for spaces at the " + endStation + " station?");
         } catch (JSONException e) {
             e.printStackTrace();
         }

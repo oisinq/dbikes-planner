@@ -125,13 +125,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private StreetViewPanorama mStreetViewPanorama;
     private ClusterManager<StationClusterItem> mClusterManager;
     private Marker selectedStation;
-    private Configuration configuration;
     private RequestQueue queue;
     private Map<String, StationClusterItem> clusterItems = new HashMap<>();
     private Set<Polyline> routeLines = new HashSet<>();
     private RouteType quietestCycleRouteType;
     private RouteType fastestCycleRouteType;
     private RouteType shortestCycleRouteType;
+    private RouteType balancedCycleRouteType;
     private StationClusterItem mRouteEndStation;
     private List<Marker> routeMarkers = new ArrayList<>();
     private RecyclerView recyclerView;
@@ -176,23 +176,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onConfigurationChanged(@NonNull Configuration configuration) {
         super.onConfigurationChanged(configuration);
-
-        MapStyleOptions style = null;
-
-        int currentNightMode = getApplicationContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        switch (currentNightMode) {
-            case Configuration.UI_MODE_NIGHT_NO:
-                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_light);
-                break;
-            case Configuration.UI_MODE_NIGHT_YES:
-                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_dark);
-                break;
-            default:
-                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_light);
-                break;
-        }
-        mMap.setMapStyle(style);
-
+        checkForNightMode();
     }
 
     @Override
@@ -205,22 +189,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mClusterManager.setRenderer(new StationRenderer());
         map.setOnCameraIdleListener(mClusterManager);
 
-        MapStyleOptions style = null;
+        checkForNightMode();
+        displayBikeStations();
+        enableMyLocation();
+    }
+
+    public void checkForNightMode() {
+        MapStyleOptions style;
 
         int currentNightMode = getApplicationContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        switch (currentNightMode) {
-            case Configuration.UI_MODE_NIGHT_YES:
-                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_dark);
-                break;
-            default:
-                style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_light);
-                break;
+        if (currentNightMode == Configuration.UI_MODE_NIGHT_YES) {
+            style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_dark);
+        } else {
+            style = MapStyleOptions.loadRawResourceStyle(this, R.raw.mapstyle_light);
         }
+
         mMap.setMapStyle(style);
-
-        displayBikeStations();
-
-        enableMyLocation();
     }
 
     private void createNotificationChannel() {
@@ -407,7 +391,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment)
                 getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
 
-
+        autocompleteFragment.setHint("Where to?");
         autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.NAME, Place.Field.ADDRESS, Place.Field.LAT_LNG));
 
         // Set the bounds of autocomplete to be Dublin city
@@ -493,6 +477,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.animateCamera(CameraUpdateFactory.newLatLng(dublin));
         mMap.animateCamera(CameraUpdateFactory.zoomTo(13f));
         mClusterManager.clearItems();
+        mMap.clear();
 
         routeMarkers.add(mMap.addMarker(new MarkerOptions().position(place.getLatLng()).icon(BitmapDescriptorFactory.defaultMarker(150.0f))));
 
@@ -507,7 +492,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         StringRequest stringRequest = getRouteRequest(url.replace(" ", "%20"));
 
-        stringRequest.setRetryPolicy(new DefaultRetryPolicy( 50000, 5, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+        //todo: make timeout smaller
+        stringRequest.setRetryPolicy(new DefaultRetryPolicy( 10000, 5, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
         queue.add(stringRequest);
 
@@ -548,6 +534,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 hideAllCycleRouteLines();
 
                 updateUIForRouteType(shortestCycleRouteType);
+            }
+        });
+
+        Chip balancedChip = findViewById(R.id.chip_balanced);
+
+        balancedChip.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                hideAllCycleRouteLines();
+
+                updateUIForRouteType(balancedCycleRouteType);
             }
         });
     }
@@ -623,10 +620,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         shortestCycleRouteType.getPolyline().setVisible(false);
         quietestCycleRouteType.getPolyline().setVisible(false);
         fastestCycleRouteType.getPolyline().setVisible(false);
+        balancedCycleRouteType.getPolyline().setVisible(false);
 
         routeLines.remove(shortestCycleRouteType.getPolyline());
         routeLines.remove(quietestCycleRouteType.getPolyline());
         routeLines.remove(fastestCycleRouteType.getPolyline());
+        routeLines.remove(balancedCycleRouteType.getPolyline());
     }
 
     private StringRequest getRouteRequest(String url) {
@@ -658,8 +657,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void setUpInitialRouteUI(JSONObject route) throws JSONException {
-        // Displays the quietest route
-        quietestCycleRouteType.getPolyline().setVisible(true);
+        // Displays the balanced route
+        balancedCycleRouteType.getPolyline().setVisible(true);
 
         // Hides the shim
         setLoadingShimVisibibility(View.GONE);
@@ -667,8 +666,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
         JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
 
-        // Adds the quietest route lines
-        routeLines.add(quietestCycleRouteType.getPolyline());
+        // Adds the balanced route lines
+        routeLines.add(balancedCycleRouteType.getPolyline());
         routeLines.add(mMap.addPolyline(getWalkingRoute(startWalkingRoute)));
         routeLines.add(mMap.addPolyline(getWalkingRoute(endWalkingRoute)));
 
@@ -680,6 +679,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         // Adds the appropriate stations to the map
         endStation.setSnippet((endStation.getTotalSpaces() - endStation.getAvailableBikes()) + " out of " + endStation.getTotalSpaces() + " spaces currently available");
+
         mRouteEndStation = endStation;
         mClusterManager.addItem(startStation);
         mClusterManager.addItem(endStation);
@@ -689,23 +689,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         JSONObject quietestCycleRoute = route.getJSONObject("quietest_cycle_route");
         JSONObject fastestCycleRoute = route.getJSONObject("fastest_cycle_route");
         JSONObject shortestCycleRoute = route.getJSONObject("shortest_cycle_route");
+        JSONObject balancedCycleRoute = route.getJSONObject("balanced_cycle_route");
 
         // Extracts the route types from the JSONObjects
         quietestCycleRouteType = extractRouteType(quietestCycleRoute, route);
         fastestCycleRouteType = extractRouteType(fastestCycleRoute, route);
         shortestCycleRouteType = extractRouteType(shortestCycleRoute, route);
+        balancedCycleRouteType = extractRouteType(balancedCycleRoute, route);
     }
 
     private void setUpRouteBottomSheet(JSONObject route) {
         // Sets up the bottom sheet title
-        setJourneyTitleText(quietestCycleRouteType);
-        setJourneySubtitleText(quietestCycleRouteType);
-        setJourneyDetailsText(quietestCycleRouteType);
+        setJourneyTitleText(balancedCycleRouteType);
+        setJourneySubtitleText(balancedCycleRouteType);
+        setJourneyDetailsText(balancedCycleRouteType);
 
         notificationSent = false;
 
         // Sets up the recycler view to display the directions
-        DirectionsAdapter adapter = new DirectionsAdapter(quietestCycleRouteType.getDirections(), getApplicationContext());
+        DirectionsAdapter adapter = new DirectionsAdapter(balancedCycleRouteType.getDirections(), getApplicationContext());
         recyclerView = findViewById(R.id.bottom_sheet_recycler);
         recyclerView.setAdapter(adapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
@@ -740,7 +742,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         FloatingActionButton navigationFab = findViewById(R.id.navigation_fab);
         navigationFab.setVisibility(View.VISIBLE);
 
-
         navigationFab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -763,18 +764,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-
-
-
     public void scheduleNotification(long delay, int notificationId, JSONObject route) {//delay is after how much time(in millis) from current time you want to schedule the notification
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "dbikes-planner")
-                .setContentTitle("Thanks for using our app!")
+                .setContentTitle("Thanks for using dBikes Planner!")
                 .setContentText("Can you provide some feedback on how busy the station was?")
                 .setSmallIcon(R.drawable.ic_my_icon)
                 .setStyle(new NotificationCompat.BigTextStyle()
                         .bigText("Can you provide some feedback on how busy the station was?"))
-                //.setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_MAX);
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
 
         Context context = this;
 
@@ -1292,8 +1290,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         chart.setData(new LineData(historicalSet, todaysSet));
 
-       // chart.setData(lineData);
-       // chart.setData(todaysLineData);
         chart.invalidate();
     }
 
@@ -1312,6 +1308,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         @Override
         protected void onBeforeClusterItemRendered(StationClusterItem item, MarkerOptions markerOptions) {
             //Todo: with some refactoring, this logic can be combined with how Markers are rendered
+
+            //Todo: also this logic is bad
             String splitter;
             if (item.getSnippet().contains("bikes currently available")) {
                 splitter = " bikes currently available";
