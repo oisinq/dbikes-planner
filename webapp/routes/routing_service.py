@@ -1,17 +1,16 @@
-import threading
-from datetime import datetime, timedelta
-
-import pandas as pd
-from google.cloud import datastore
-
 from . import routes
 from . import knn_availability_service
-import flask
+
+import threading
+from datetime import datetime, timedelta
+import pandas as pd
+from google.cloud import datastore
 import geopy.distance
 from flask import request, jsonify
 from scipy import spatial
 import requests
 import uuid
+
 
 def predict_station(station, minutes, request_type):
     return knn_availability_service.predict_availability(station['address'], minutes, request_type)
@@ -70,35 +69,30 @@ def find_best_station(location, request_type, minutes):
     closest_start_stations = station_tree.query(location, k=3, p=3)
     hierarchy = ['high', 'moderate', 'low', 'very low', 'empty']
 
+    trip_time = datetime.now() + timedelta(minutes=int(minutes))
+
     # NOTE: Don't mix up the index with the "Number" attribute in the DataFrame. They don't match up.
     first_station_index = closest_start_stations[1][0]
     best_station = station_list.iloc[first_station_index]
-    results = []
 
-    suitable_stations = []
+    results = []
 
     for index, station_index in enumerate(closest_start_stations[1]):
         station = station_list.iloc[station_index]
 
-        # current_availability = get_current_availability(station, request_type) # Not currently used, could be useful
-
         distance = geopy.distance.distance(location, (station['position']['lat'], station['position']['lng']))
 
+        # 84 metres per minute == 1.4 m/s, which is the average urban walking speed
         prediction_response = predict_station(station, int(float(minutes) + (distance.m / 84)),
-                                              request_type) # 84 metres per minute == 1.4 m/s, which is the average urban walking speed
+                                              request_type)
 
         availability = prediction_response['prediction']
 
         results.append(prediction_response)
 
+        # If any of these conditions are true, then this is the best station
         if availability == 'high' or (availability == 'moderate' and not is_peak_time(trip_time)):
-            if request_type == 'bikes':
-                return station
-            else:
-                suitable_stations.append(station)
-
-    if len(suitable_stations) > 0:
-        #todo
+            return station
 
     # This picks the best station from the outputs (ignoring distance, since k=3)
     for level_index, level in enumerate(hierarchy[1:]):  # Ignores 'high', because of the previous if
@@ -114,14 +108,13 @@ def find_best_station(location, request_type, minutes):
 
     return best_station
 
-def is_peak_time(selected_time):
-    if selected_time.hour >= 8 and selected_time.hour <= 10:
-        return True
 
-    if selected_time.hour >= 16 and selected_time.hour <= 18:
+def is_peak_time(selected_time):
+    if 8 <= selected_time.hour <= 10 or 16 <= selected_time.hour <= 18:
         return True
 
     return False
+
 
 @routes.route('/route', methods=['GET'])
 def generate_route():
@@ -146,8 +139,13 @@ def generate_route():
 
     start_station = find_best_station(start_location, 'bikes', minutes)
 
-    # todo: this minutes amount should be more than minutes, add time to the minutes based off the distance at a cycling speed
-    end_station = find_best_station(end_location, 'bikestands', minutes)
+    # To estimate the arrival time at the end station, we estimate the distance between the start and end location,
+    # and calculate 90% of this distance (assume 10% of the journey is walked)
+    estimated_cycling_distance = geopy.distance.distance(start_location, end_location) / 100.0 * 90.0
+    # 420 metres per minute == 7 m/s, which is the average urban cycling speed
+    estimated_cycling_minutes = int(float(minutes) + (estimated_cycling_distance.m / 420))
+
+    end_station = find_best_station(end_location, 'bikestands', estimated_cycling_minutes)
 
     quietest_cycle_route_json = requests.get(
         get_cycle_streets_url(start_station['position'], end_station['position'], 'quietest'))
@@ -223,18 +221,3 @@ def refresh_bikes():
 
 
 refresh_bikes()
-
-# class RefreshThread(threading.Thread):
-#     def __init__(self):
-#         threading.Thread.__init__(self)
-#
-#     def run(self):
-#         while True:
-#             global station_list
-#             station_list = pd.read_json(
-#                 "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
-#             time.sleep(5*60)
-
-# scheduler = BackgroundScheduler()
-# scheduler.add_job(func=refresh_bikes, trigger="interval", minutes=5)
-# scheduler.start()

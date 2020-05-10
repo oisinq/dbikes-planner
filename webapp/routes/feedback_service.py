@@ -1,11 +1,7 @@
-import http
+from . import routes
 
+from flask import request
 from google.cloud import datastore
-
-from routes import *
-
-import json
-from flask import jsonify
 
 
 @routes.route('/feedback/<uuid>', methods=['POST'])

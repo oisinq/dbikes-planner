@@ -1,15 +1,12 @@
 from datetime import datetime, timedelta
-from routes import *
+from . import routes
 
 import update_station_records
 from flask import request
 import json
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier
 from apscheduler.schedulers.background import BackgroundScheduler
-import threading
-import time
 import requests
 
 station_names = ['Smithfield North', 'Parnell Square North', 'Clonmel Street', 'Avondale Road', 'Mount Street Lower',
@@ -153,31 +150,8 @@ def predict_availability(station, minutes, type):
     return {"prediction": prediction[0], "probabilities": probs}
 
 
-#todo: combine these two methods
-@routes.route('/predict/bikes', methods=['GET'])
-def predict_bike_availability_route():
-    #print("predicting availability lets goooo")
-    if 'station' in request.args:
-        station = request.args['station']
-    else:
-        return "Error: No station field provided. Please specify an id."
-
-    if 'minutes' in request.args:
-        minutes = int(request.args['minutes'])
-    else:
-        return "Error: No minutes field provided. Please specify an id."
-
-    if station not in station_names:
-        return "Error: Invalid station provided. Please specify a valid station name"
-
-    result = predict_availability(station, minutes, "bikes")
-
-    return json.dumps(result)
-
-
-@routes.route('/predict/bikestands', methods=['GET'])
-def predict_bike_stands_availability():
-    #print("predicting availability lets goooo")
+@routes.route('/predict/<journey_type>', methods=['GET'])
+def predict_bike_stands_availability(journey_type):
 
     if 'station' in request.args:
         station = request.args['station']
@@ -189,10 +163,13 @@ def predict_bike_stands_availability():
     else:
         minutes = 0
 
+    if journey_type != 'bikes' and journey_type != 'bikestands':
+        return "Error: prediction type invalid. Must be /bikes or /bikestands."
+
     if station not in station_names:
         return "Error: Invalid station provided. Please specify a valid station name"
 
-    result = predict_availability(station, minutes, 'bikestands')
+    result = predict_availability(station, minutes, journey_type)
 
     return json.dumps(result)
 

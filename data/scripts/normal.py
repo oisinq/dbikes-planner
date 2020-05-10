@@ -18,8 +18,7 @@ def timestamp_fix():
 
     print(X_scaled)
     print(y_scaled)
-    #    y = encoder.fit_transform(y.values.reshape(-1, 1))
-    #X = minmax.fit_transform(X)
+
 
 if __name__ == "__main__":
     timestamp_fix()

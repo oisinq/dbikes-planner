@@ -1,19 +1,11 @@
-from datetime import datetime, timedelta
-from routes import *
+from . import routes
+from flask import jsonify
 
-import update_station_records
-from flask import request
-import json
 import datetime
 import numpy as np
 import pandas as pd
-from sklearn.neighbors import KNeighborsClassifier
-from apscheduler.schedulers.background import BackgroundScheduler
-import threading
-import time
-import requests
 
-#todo: might be able to get rid of this
+
 station_names = ['Smithfield North', 'Parnell Square North', 'Clonmel Street', 'Avondale Road', 'Mount Street Lower',
                  'Christchurch Place', 'Grantham Street', 'Pearse Street', 'York Street East', 'Excise Walk',
                  'Fitzwilliam Square West', 'Portobello Road', 'St. James Hospital (Central)', 'Parnell Street',
@@ -57,10 +49,9 @@ def generate_history_graph(station_name, mode):
     else:
         historical_data = data[data['type_of_day'] == 10].tail(17000)
 
-    #todo: rename variable
-    nov_mask = pd.to_datetime(historical_data['iso_date']).map(lambda x: (x - datetime.datetime(1970, 1, 1)).days) == (datetime.datetime.now() -
+    todays_data_mask = pd.to_datetime(historical_data['iso_date']).map(lambda x: (x - datetime.datetime(1970, 1, 1)).days) == (datetime.datetime.now() -
                                                                                                                        datetime.datetime(1970, 1, 1)).days
-    todays_data = historical_data[nov_mask]
+    todays_data = historical_data[todays_data_mask]
 
     if mode == 'bikestands':
         historical_x, historical_y = (historical_data['time_of_day'], historical_data['available_bike_stands'])
