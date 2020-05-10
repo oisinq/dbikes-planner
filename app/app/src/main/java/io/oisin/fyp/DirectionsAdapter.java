@@ -8,23 +8,29 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
 
 import io.oisin.fyp.model.Direction;
 
+/**
+ * RecyclerView for displaying a list of directions of unknown length
+ * Based off this guide: https://developer.android.com/guide/topics/ui/layout/recyclerview
+ */
 public class DirectionsAdapter extends
         RecyclerView.Adapter<DirectionsAdapter.ViewHolder> {
 
     private List<Direction> directions;
     private Context context;
 
-    public DirectionsAdapter(List<Direction> directions, Context context) {
+    DirectionsAdapter(List<Direction> directions, Context context) {
         this.directions = directions;
         this.context = context;
     }
 
+    @NonNull
     @Override
     public DirectionsAdapter.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         Context context = parent.getContext();
@@ -32,8 +38,7 @@ public class DirectionsAdapter extends
 
         View contactView = inflater.inflate(R.layout.item_direction, parent, false);
 
-        ViewHolder viewHolder = new ViewHolder(contactView);
-        return viewHolder;
+        return new ViewHolder(contactView);
     }
 
     @Override
@@ -116,7 +121,7 @@ public class DirectionsAdapter extends
         return directions.size();
     }
 
-    class ViewHolder extends RecyclerView.ViewHolder {
+    static class ViewHolder extends RecyclerView.ViewHolder {
         TextView directionTitleTextView;
         TextView directionSubtitleTextView;
         ImageView directionArrow;

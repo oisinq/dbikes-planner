@@ -5,6 +5,7 @@ import com.google.android.gms.maps.model.Polyline;
 import java.util.List;
 
 /**
+ * Data class used to signify an individual route.
  * Created by Oisin Quinn (@oisin1001) on 2020-03-11.
  */
 public class RouteType {

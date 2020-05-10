@@ -24,7 +24,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewTreeObserver;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -121,19 +120,20 @@ import io.oisin.fyp.model.RouteType;
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, ActivityCompat.OnRequestPermissionsResultCallback, GoogleMap.OnMarkerClickListener {
 
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
+    private final Map<String, StationClusterItem> clusterItems = new HashMap<>();
+    private final Set<Polyline> routeLines = new HashSet<>();
+    private final List<Marker> routeMarkers = new ArrayList<>();
     private GoogleMap mMap;
     private StreetViewPanorama mStreetViewPanorama;
     private ClusterManager<StationClusterItem> mClusterManager;
     private Marker selectedStation;
     private RequestQueue queue;
-    private Map<String, StationClusterItem> clusterItems = new HashMap<>();
-    private Set<Polyline> routeLines = new HashSet<>();
     private RouteType quietestCycleRouteType;
     private RouteType fastestCycleRouteType;
     private RouteType shortestCycleRouteType;
     private RouteType balancedCycleRouteType;
+    private StationClusterItem mRouteStartStation;
     private StationClusterItem mRouteEndStation;
-    private List<Marker> routeMarkers = new ArrayList<>();
     private RecyclerView recyclerView;
     private boolean notificationSent = false;
 
@@ -145,12 +145,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+        queue = Volley.newRequestQueue(this);
 
         if (getIntent().hasExtra("feedbackSubmitted")) {
-            Toast.makeText(getApplicationContext(), "Thanks for your feedback!", Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), "Thank you for your feedback!", Toast.LENGTH_LONG).show();
         }
-
-        queue = Volley.newRequestQueue(this);
 
         createNotificationChannel();
         setUpMapUI();
@@ -194,7 +193,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         enableMyLocation();
     }
 
-    public void checkForNightMode() {
+    private void checkForNightMode() {
         MapStyleOptions style;
 
         int currentNightMode = getApplicationContext().getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
@@ -335,12 +334,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         fab.setVisibility(View.INVISIBLE);
     }
 
-    private void setLoadingShimVisibibility(int visibility) {
+    private void setLoadingShimVisibility(int visibility) {
         RelativeLayout shim = findViewById(R.id.route_loading_shim);
         shim.setVisibility(visibility);
     }
 
-    private void setBlankShimVisibibility(int visibility) {
+    private void setBlankShimVisibility(int visibility) {
         RelativeLayout shim = findViewById(R.id.blank_loading_shim);
         shim.setVisibility(visibility);
     }
@@ -367,7 +366,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                         int minutes = (int) (milliseconds / (1000 * 60));
 
-                        setBlankShimVisibibility(View.INVISIBLE);
+                        setBlankShimVisibility(View.INVISIBLE);
                         showRoute(place, minutes);
                     }
                 }, rightNow.get(Calendar.HOUR_OF_DAY), rightNow.get(Calendar.MINUTE), true);
@@ -375,7 +374,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         timePickerDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
             @Override
             public void onCancel(DialogInterface dialogInterface) {
-                setBlankShimVisibibility(View.INVISIBLE);
+                setBlankShimVisibility(View.INVISIBLE);
             }
         });
 
@@ -402,15 +401,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
-            public void onPlaceSelected(Place place) {
-                setBlankShimVisibibility(View.VISIBLE);
+            public void onPlaceSelected(@NonNull Place place) {
+                setBlankShimVisibility(View.VISIBLE);
                 hideBottomSheet();
 
                 showJourneyQuestionDialog(place);
             }
 
             @Override
-            public void onError(Status status) {
+            public void onError(@NonNull Status status) {
                 Log.i(".MapsActivity", "An error occurred: " + status);
             }
         });
@@ -429,9 +428,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 SegmentedGroup group = findViewById(R.id.station_type_segment_group);
                 group.setVisibility(View.VISIBLE);
 
+                mRouteStartStation.setEndStation(false);
                 mRouteEndStation.setEndStation(false);
                 mRouteEndStation.setSnippet(generateMarkerSnippet(mRouteEndStation.getAvailableBikes(),
                         mRouteEndStation.getAvailableBikes()));
+
+                notificationSent = false;
             }
         });
     }
@@ -443,7 +445,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         builder.setPositiveButton("Now", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
-                setBlankShimVisibibility(View.INVISIBLE);
+                setBlankShimVisibility(View.INVISIBLE);
                 showRoute(place, 0);
             }
         });
@@ -460,7 +462,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onClick(DialogInterface dialog, int id) {
                 // User cancelled the dialog
                 dialog.cancel();
-                setBlankShimVisibibility(View.INVISIBLE);
+                setBlankShimVisibility(View.INVISIBLE);
             }
         });
 
@@ -471,7 +473,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void showRoute(Place place, int minutes) {
-        setLoadingShimVisibibility(View.VISIBLE);
+        setLoadingShimVisibility(View.VISIBLE);
         LatLng dublin = new LatLng(53.3499, -6.2603);
 
         mMap.animateCamera(CameraUpdateFactory.newLatLng(dublin));
@@ -493,7 +495,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         StringRequest stringRequest = getRouteRequest(url.replace(" ", "%20"));
 
         //todo: make timeout smaller
-        stringRequest.setRetryPolicy(new DefaultRetryPolicy( 10000, 5, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+        stringRequest.setRetryPolicy(new DefaultRetryPolicy(10000, 5, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
         queue.add(stringRequest);
 
@@ -567,7 +569,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         TextView titleText = findViewById(R.id.route_bottom_sheet_title);
 
         if (routeType.getTotalDistance() < 1000) {
-            titleText.setText(Math.round(routeType.getTotalDuration() / 60) + " mins (" + Math.round(routeType.getTotalDistance()/10.0) * 10 + "m)");
+            titleText.setText(Math.round(routeType.getTotalDuration() / 60) + " mins (" + Math.round(routeType.getTotalDistance() / 10.0) * 10 + "m)");
         } else {
             titleText.setText(Math.round(routeType.getTotalDuration() / 60) + " mins (" + Math.round(routeType.getTotalDistance() / 100) / 10.0 + "km)");
         }
@@ -576,16 +578,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private void setJourneySubtitleText(RouteType routeType) {
         TextView subtitleText = findViewById(R.id.route_bottom_sheet_subtitle);
 
-        String result = "Cyling for ";
+        String result = "Cycling for ";
         if (routeType.getCyclingDistance() < 1000) {
-            result += Math.round(routeType.getCyclingDuration() / 60) + " mins (" + Math.round(routeType.getCyclingDistance()/10.0) * 10 + "m)";
+            result += Math.round(routeType.getCyclingDuration() / 60) + " mins (" + Math.round(routeType.getCyclingDistance() / 10.0) * 10 + "m)";
         } else {
             result += Math.round(routeType.getCyclingDuration() / 60) + " mins (" + Math.round(routeType.getCyclingDistance() / 100) / 10.0 + "km)";
         }
 
         result += "\nWalking for ";
         if (routeType.getWalkingDistance() < 1000) {
-            result += Math.round(routeType.getWalkingDuration() / 60) + " mins (" + Math.round(routeType.getWalkingDistance()/10.0) * 10 + "m)";
+            result += Math.round(routeType.getWalkingDuration() / 60) + " mins (" + Math.round(routeType.getWalkingDistance() / 10.0) * 10 + "m)";
         } else {
             result += Math.round(routeType.getWalkingDuration() / 60) + " mins (" + Math.round(routeType.getWalkingDistance() / 100) / 10.0 + "km)";
         }
@@ -661,7 +663,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         balancedCycleRouteType.getPolyline().setVisible(true);
 
         // Hides the shim
-        setLoadingShimVisibibility(View.GONE);
+        setLoadingShimVisibility(View.GONE);
 
         JSONObject startWalkingRoute = route.getJSONObject("start_walking_route");
         JSONObject endWalkingRoute = route.getJSONObject("end_walking_route");
@@ -680,6 +682,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Adds the appropriate stations to the map
         endStation.setSnippet((endStation.getTotalSpaces() - endStation.getAvailableBikes()) + " out of " + endStation.getTotalSpaces() + " spaces currently available");
 
+        mRouteStartStation = startStation;
         mRouteEndStation = endStation;
         mClusterManager.addItem(startStation);
         mClusterManager.addItem(endStation);
@@ -756,7 +759,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
 
                 if (!notificationSent) {
-                    scheduleNotification(10000, (int)System.currentTimeMillis(), route);
+                    scheduleNotification(10000, (int) System.currentTimeMillis(), route);
                     notificationSent = true;
                 }
 
@@ -764,7 +767,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    public void scheduleNotification(long delay, int notificationId, JSONObject route) {//delay is after how much time(in millis) from current time you want to schedule the notification
+    private void scheduleNotification(long delay, int notificationId, JSONObject route) {//delay is after how much time(in millis) from current time you want to schedule the notification
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "dbikes-planner")
                 .setContentTitle("Thanks for using dBikes Planner!")
                 .setContentText("Can you provide some feedback on how busy the station was?")
@@ -833,7 +836,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         JSONObject endWalkingRouteSummary = fullRoute.getJSONObject("end_walking_route").getJSONArray("features").getJSONObject(0).getJSONObject("properties").getJSONObject("summary");
 
         double cyclingDistance = Double.parseDouble(object.getString("length"));
-        //features[0].properties.summary.distance
+
         double walkingDistance = startWalkingRouteSummary.getDouble("distance");
         walkingDistance += endWalkingRouteSummary.getDouble("distance");
 
@@ -1036,7 +1039,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (requestCode == PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION) {
             if (permissions.length == 1 &&
                     permissions[0].equals(Manifest.permission.ACCESS_FINE_LOCATION) &&
@@ -1044,9 +1047,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mMap.setMyLocationEnabled(true);
                 mMap.getUiSettings().setMyLocationButtonEnabled(true);
                 mMap.getUiSettings().setMapToolbarEnabled(true);
-            } else {
-                //todo Permission was denied. Display an error message.
-            }
+            }  //todo Permission was denied. Display an error message.
+
         }
     }
 
@@ -1090,12 +1092,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         queue.add(stringRequest);
     }
 
-    public boolean hasSoftKeys(WindowManager windowManager){
+    private boolean hasSoftKeys() {
         boolean hasSoftwareKeys = true;
         //c = context; use getContext(); in fragments, and in activities you can
         //directly access the windowManager();
 
-        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.JELLY_BEAN_MR1){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             Display d = getWindowManager().getDefaultDisplay();
 
             DisplayMetrics realDisplayMetrics = new DisplayMetrics();
@@ -1110,7 +1112,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             int displayHeight = displayMetrics.heightPixels;
             int displayWidth = displayMetrics.widthPixels;
 
-            hasSoftwareKeys =  (realWidth - displayWidth) > 0 ||
+            hasSoftwareKeys = (realWidth - displayWidth) > 0 ||
                     (realHeight - displayHeight) > 0;
         } else {
             boolean hasMenuKey = ViewConfiguration.get(getApplicationContext()).hasPermanentMenuKey();
@@ -1126,7 +1128,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         final BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
         bottomSheetBehavior.setDraggable(true);
 
-        if (!hasSoftKeys(getWindowManager())) {
+        if (!hasSoftKeys()) {
             // Sets the bottom sheet to hide the directions part of the bottom sheet
             bottomSheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
                 @Override
@@ -1221,7 +1223,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         yAxis.setYOffset(-9f);
         yAxis.setTextColor(Color.rgb(255, 192, 56));
         yAxis.setAxisMinimum(0);
-        yAxis.setAxisMaximum(getMarkerTotalSpaces(marker)+5);
+        yAxis.setAxisMaximum(getMarkerTotalSpaces(marker) + 5);
 
         YAxis rightAxis = chart.getAxisRight();
         rightAxis.setEnabled(false);
@@ -1284,10 +1286,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         todaysSet.setDrawCircleHole(false);
         todaysSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
 
-        ArrayList<LineDataSet> lines = new ArrayList<> ();
-        lines.add(historicalSet);
-        lines.add(todaysSet);
-
         chart.setData(new LineData(historicalSet, todaysSet));
 
         chart.invalidate();
@@ -1301,7 +1299,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private class StationRenderer extends DefaultClusterRenderer<StationClusterItem> {
 
-        public StationRenderer() {
+        StationRenderer() {
             super(getApplicationContext(), mMap, mClusterManager);
         }
 

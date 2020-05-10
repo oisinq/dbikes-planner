@@ -6,6 +6,9 @@ import com.google.android.gms.maps.LocationSource;
 
 /**
  * Created by Oisin Quinn (@oisin1001) on 16/04/2020.
+ *
+ * MockedLocationSource is used to pretend that the user is located near the Charlemont bike station.
+ * This is required due to the COVID-19 pandemic lockdown.
  */
 public class MockedLocationSource implements LocationSource {
     @Override
@@ -18,7 +21,5 @@ public class MockedLocationSource implements LocationSource {
     }
 
     @Override
-    public void deactivate() {
-
-    }
+    public void deactivate() {}
 }

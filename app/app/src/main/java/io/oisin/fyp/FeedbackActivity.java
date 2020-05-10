@@ -27,27 +27,29 @@ import org.json.JSONObject;
 
 public class FeedbackActivity extends AppCompatActivity {
     JSONObject route;
-    String startStation;
-    String endStation;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_feedback);
 
+        String startStationName = "", endStationName = "";
         try {
             route = new JSONObject(getIntent().getStringExtra("route"));
-            startStation = route.getString("start_station");
-            endStation = route.getString("end_station");
 
-            TextView startQuestion = findViewById(R.id.feedback_start_question);
-            TextView endQuestion = findViewById(R.id.feedback_end_question);
-
-            startQuestion.setText("Was there a queue for bikes at the " + startStation + " station?");
-            endQuestion.setText("Was there a queue for spaces at the " + endStation + " station?");
+            startStationName = route.getString("start_station");
+            endStationName = route.getString("end_station");
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
+
+
+        TextView startQuestion = findViewById(R.id.feedback_start_question);
+        TextView endQuestion = findViewById(R.id.feedback_end_question);
+
+        startQuestion.setText(getString(R.string.feedback_question, startStationName));
+        endQuestion.setText(getString(R.string.feedback_question, endStationName));
 
         Toolbar myToolbar = findViewById(R.id.my_toolbar);
         setSupportActionBar(myToolbar);
@@ -97,7 +99,7 @@ public class FeedbackActivity extends AppCompatActivity {
             public void onValueChange(@NonNull Slider slider, float value, boolean fromUser) {
                 TextView textView = findViewById(R.id.start_slider_minutes);
 
-                textView.setText((int) value + " minutes");
+                textView.setText(getString(R.string.feedback_minutes, (int) value));
             }
         });
 
@@ -108,7 +110,7 @@ public class FeedbackActivity extends AppCompatActivity {
             public void onValueChange(@NonNull Slider slider, float value, boolean fromUser) {
                 TextView textView = findViewById(R.id.end_slider_minutes);
 
-                textView.setText((int) value + " minutes");
+                textView.setText(getString(R.string.feedback_minutes, (int) value));
             }
         });
 

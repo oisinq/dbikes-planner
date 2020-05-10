@@ -12,7 +12,7 @@ public class StationClusterItem implements ClusterItem {
     private int availableBikes;
     private int totalSpaces;
 
-    public StationClusterItem(double lat, double lng, String title, String snippet, int availableBikes, int totalSpaces) {
+    StationClusterItem(double lat, double lng, String title, String snippet, int availableBikes, int totalSpaces) {
         mPosition = new LatLng(lat, lng);
         mTitle = title;
         mSnippet = snippet;
@@ -31,52 +31,32 @@ public class StationClusterItem implements ClusterItem {
     @Override
     public String getSnippet() { return mSnippet; }
 
-    /**
-     * Set the title of the marker
-     * @param title string to be set as title
-     */
-    public void setTitle(String title) {
-        mTitle = title;
-    }
-
-    /**
-     * Set the description of the marker
-     * @param snippet string to be set as snippet
-     */
-    public void setSnippet(String snippet) {
+    void setSnippet(String snippet) {
         mSnippet = snippet;
     }
 
-    public boolean isStartStation() {
+    boolean isStartStation() {
         return isStartStation;
     }
 
-    public void setStartStation(boolean startStation) {
+    void setStartStation(boolean startStation) {
         isStartStation = startStation;
     }
 
-    public boolean isEndStation() {
+    boolean isEndStation() {
         return isEndStation;
     }
 
-    public void setEndStation(boolean endStation) {
+    void setEndStation(boolean endStation) {
         isEndStation = endStation;
     }
 
-    public int getAvailableBikes() {
+    int getAvailableBikes() {
         return availableBikes;
     }
 
-    public void setAvailableBikes(int availableBikes) {
-        this.availableBikes = availableBikes;
-    }
-
-    public int getTotalSpaces() {
+    int getTotalSpaces() {
         return totalSpaces;
-    }
-
-    public void setTotalSpaces(int totalSpaces) {
-        this.totalSpaces = totalSpaces;
     }
 
 }

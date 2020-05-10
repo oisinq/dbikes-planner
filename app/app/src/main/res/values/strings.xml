@@ -3,4 +3,6 @@
     <string name="title_activity_maps">Map</string>
     <string name="title_activity_route">Route</string>
     <string name="map_style_light">[{"elementType": "labels","stylers": [{"visibility": "off"}]},{"featureType": "administrative.neighborhood","stylers": [{"visibility": "off"}]},{"featureType": "road","elementType": "labels.text","stylers": [{"visibility": "simplified"}]},{"featureType": "transit.line","stylers": [{"visibility": "on"}]},{"featureType": "transit.station","stylers": [{"visibility": "on"}]}]</string>
+    <string name="feedback_question">Was there a queue for bikes at the %s station?</string>
+    <string name="feedback_minutes">%d minutes</string>
 </resources>

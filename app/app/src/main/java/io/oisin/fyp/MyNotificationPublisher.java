@@ -8,6 +8,8 @@ import android.content.Intent;
 
 /**
  * Created by Oisin Quinn (@oisin1001) on 2020-04-06.
+ *
+ * Used to handle how notifications are broadcasted.
  */
 public class MyNotificationPublisher extends BroadcastReceiver {
 
