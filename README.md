@@ -20,4 +20,6 @@ To function correctly, you will need to set up a bucket to store historical bike
 
 The Android app also requires a Google Maps API key. Change the value in the two google_maps_api.xml files to your Google Maps API key.
 
+If you want to download the latest .apk without compiling from source, the [/releases](https://github.com/oisinq/fyp/releases) tab is the place to go.
+
 Have fun!
