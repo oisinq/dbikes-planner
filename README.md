@@ -18,4 +18,6 @@ The back-end is designed to run on a Google Cloud AppEngine instance. It can be 
 
 To function correctly, you will need to set up a bucket to store historical bike data. The data in this repo's ```/data``` folder can be used for this purpose.
 
-The Android app also requires a Google Maps API key.
+The Android app also requires a Google Maps API key. Change the value in the two google_maps_api.xml files to your Google Maps API key.
+
+Have fun!
