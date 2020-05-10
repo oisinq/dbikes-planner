@@ -120,21 +120,26 @@ import io.oisin.fyp.model.RouteType;
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, ActivityCompat.OnRequestPermissionsResultCallback, GoogleMap.OnMarkerClickListener {
 
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
+
     private final Map<String, StationClusterItem> clusterItems = new HashMap<>();
     private final Set<Polyline> routeLines = new HashSet<>();
     private final List<Marker> routeMarkers = new ArrayList<>();
+
     private GoogleMap mMap;
     private StreetViewPanorama mStreetViewPanorama;
     private ClusterManager<StationClusterItem> mClusterManager;
     private Marker selectedStation;
-    private RequestQueue queue;
+    private RequestQueue requestQueue;
+    private RecyclerView recyclerView;
+
     private RouteType quietestCycleRouteType;
     private RouteType fastestCycleRouteType;
     private RouteType shortestCycleRouteType;
     private RouteType balancedCycleRouteType;
+
     private StationClusterItem mRouteStartStation;
     private StationClusterItem mRouteEndStation;
-    private RecyclerView recyclerView;
+
     private boolean notificationSent = false;
 
     @Override
@@ -145,7 +150,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-        queue = Volley.newRequestQueue(this);
+        requestQueue = Volley.newRequestQueue(this);
 
         if (getIntent().hasExtra("feedbackSubmitted")) {
             Toast.makeText(getApplicationContext(), "Thank you for your feedback!", Toast.LENGTH_LONG).show();
@@ -485,7 +490,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         String start = "53.330667,-6.258590";
 
-        //todo: This settings lets us use our real location. Not currently being used.
+        //note: This setting lets us use our real location. Not currently being used.
         // String start = + location.getLatitude() + "," + location.getLongitude();
         String end = place.getLatLng().latitude + "," + place.getLatLng().longitude;
 
@@ -494,10 +499,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         StringRequest stringRequest = getRouteRequest(url.replace(" ", "%20"));
 
-        //todo: make timeout smaller
         stringRequest.setRetryPolicy(new DefaultRetryPolicy(10000, 5, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
-        queue.add(stringRequest);
+        requestQueue.add(stringRequest);
 
         SegmentedGroup group = findViewById(R.id.station_type_segment_group);
         group.setVisibility(View.INVISIBLE);
@@ -981,7 +985,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
 
-        queue.add(stringRequest);
+        requestQueue.add(stringRequest);
     }
 
     private StationClusterItem parseStationClusterItem(JSONObject station) throws JSONException {
@@ -1028,7 +1032,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             LatLng coordinates = new LatLng(53.330667, -6.258590);
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(coordinates, 16f));
         } else {
-            //todo: Show rationale and request permission.
             ActivityCompat.requestPermissions(this,
                     new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
                     PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
@@ -1047,8 +1050,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mMap.setMyLocationEnabled(true);
                 mMap.getUiSettings().setMyLocationButtonEnabled(true);
                 mMap.getUiSettings().setMapToolbarEnabled(true);
-            }  //todo Permission was denied. Display an error message.
-
+            }
         }
     }
 
@@ -1089,7 +1091,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
 
-        queue.add(stringRequest);
+        requestQueue.add(stringRequest);
     }
 
     private boolean hasSoftKeys() {
@@ -1296,7 +1298,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         String snippet = marker.getSnippet().split(splitter)[0];
         return Integer.parseInt(snippet.split(" out of ")[1]);
     }
-
+    
     private class StationRenderer extends DefaultClusterRenderer<StationClusterItem> {
 
         StationRenderer() {
@@ -1307,7 +1309,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         protected void onBeforeClusterItemRendered(StationClusterItem item, MarkerOptions markerOptions) {
             //Todo: with some refactoring, this logic can be combined with how Markers are rendered
 
-            //Todo: also this logic is bad
             String splitter;
             if (item.getSnippet().contains("bikes currently available")) {
                 splitter = " bikes currently available";
