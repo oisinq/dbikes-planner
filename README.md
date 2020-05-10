@@ -17,3 +17,5 @@ The back-end is designed to run on a Google Cloud AppEngine instance. It can be 
 ```gcloud app deploy```
 
 To function correctly, you will need to set up a bucket to store historical bike data. The data in this repo's ```/data``` folder can be used for this purpose.
+
+The Android app also requires a Google Maps API key.
