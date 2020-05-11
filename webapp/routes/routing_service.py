@@ -1,5 +1,5 @@
 from . import routes
-from . import knn_availability_service
+from . import prediction_service
 
 import threading
 from datetime import datetime, timedelta
@@ -13,7 +13,7 @@ import uuid
 
 
 def predict_station(station, minutes, request_type):
-    return knn_availability_service.predict_availability(station['address'], minutes, request_type)
+    return prediction_service.predict_availability(station['address'], minutes, request_type)
 
 
 def get_cycle_streets_url(start, end, plan_type):
