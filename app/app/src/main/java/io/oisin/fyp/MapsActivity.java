@@ -156,11 +156,32 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Toast.makeText(getApplicationContext(), "Thank you for your feedback!", Toast.LENGTH_LONG).show();
         }
 
+        pingBackEnd();
         createNotificationChannel();
         setUpMapUI();
         setUpAutocomplete();
         setUpBottomSheet();
         setUpStationTypeButtons();
+    }
+
+    // Used to wake up the server in case it's asleep, due to moving from a Flex AppEngine instance
+    // to a Standard AppEngine instance
+    public void pingBackEnd() {
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, "https://dbikes-planner.appspot.com/health-check",
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Log.i("MapsActivity", "onResponse: Ping to back-end successful.");
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.w("MapsActivity", "onResponse: Ping to back-end failed.");
+            }
+        });
+
+        requestQueue.add(stringRequest);
     }
 
     @Override
@@ -1298,7 +1319,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         String snippet = marker.getSnippet().split(splitter)[0];
         return Integer.parseInt(snippet.split(" out of ")[1]);
     }
-    
+
     private class StationRenderer extends DefaultClusterRenderer<StationClusterItem> {
 
         StationRenderer() {

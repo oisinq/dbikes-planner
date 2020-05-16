@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta
 from . import routes
 
-import update_station_records
 from flask import request
 import json
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
-from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 
 station_names = ['Smithfield North', 'Parnell Square North', 'Clonmel Street', 'Avondale Road', 'Mount Street Lower',
@@ -34,8 +32,6 @@ station_names = ['Smithfield North', 'Parnell Square North', 'Clonmel Street', '
                  'Grangegorman Lower (South)', 'Mountjoy Square West', 'Wilton Terrace', 'Emmet Road',
                  'Heuston Bridge (North)', 'Leinster Street South', 'Blackhall Place']
 
-weather = {}
-
 
 def update_weather():
     print("Updating weather data...")
@@ -59,21 +55,9 @@ def update_weather():
     else:
         parsed_weather['visibility'] = 0
 
-    global weather
-    weather = parsed_weather
-
     print("Weather data update complete!")
 
-
-def update_bike_data(current_weather):
-    result = pd.read_json(
-        "https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=6e5c2a98e60a3336ecaede8f8c8688da25144692")
-
-
-    print("Updating bike data...")
-    for _index, row in result.iterrows():
-        update_station_records.update_record(row, current_weather)
-    print("Bike data refresh complete!")
+    return parsed_weather
 
 
 def read_file_for_station(station_name):
@@ -106,19 +90,6 @@ def get_fitted_bikes_model(station_name):
     return model
 
 
-def refresh_data():
-    update_weather()
-    if datetime.now().hour >= 5:
-        update_bike_data(weather)
-
-
-refresh_data()
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=refresh_data, trigger="interval", minutes=5)
-scheduler.start()
-
-
 def predict_availability(station, minutes, type):
     current_time = datetime.now()
     request_time = current_time + timedelta(minutes=minutes)
@@ -131,6 +102,8 @@ def predict_availability(station, minutes, type):
         model = get_fitted_bikes_model(station)
     else:
         model = get_fitted_bikestands_model(station)
+
+    weather = update_weather()
 
     prediction = model.predict([[time_of_day, type_of_day, day_of_year, weather['temperature'],
                                  weather['humidity'], weather['wind_speed'], weather['rain'],
@@ -175,5 +148,5 @@ def predict_bike_stands_availability(journey_type):
 
 
 @routes.errorhandler(404)
-def page_not_found(e):
+def page_not_found():
     return "<h1>404</h1><p>The resource could not be found. Sorry!</p>", 404

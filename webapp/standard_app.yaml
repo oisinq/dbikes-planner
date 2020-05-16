@@ -1,3 +1,0 @@
-runtime: python37
-env: standard
-entrypoint: gunicorn -b :$PORT main:app
