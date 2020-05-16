@@ -1,6 +1,7 @@
 # dBikes Planner
 
-## Final Year Project – Oisín Quinn
+![dBikes Planner Banner](banner.png)
+
 
 dBikes Planner is an Androidjourney planning app for cyclists using the Dublinbikes bike-sharing scheme. It allows users to generate cycling routes from their location to a destination, taking into account the availability of bikes at each station.
 
