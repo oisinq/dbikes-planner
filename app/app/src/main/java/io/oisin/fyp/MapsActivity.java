@@ -161,7 +161,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setUpMapUI();
         setUpAutocomplete();
         setUpBottomSheet();
-        setUpStationTypeButtons();
+        setUpStationTypeSegmentGroup();
     }
 
     // Used to wake up the server in case it's asleep, due to moving from a Flex AppEngine instance
@@ -183,6 +183,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         requestQueue.add(stringRequest);
     }
+
 
     @Override
     public void onBackPressed() {
@@ -212,7 +213,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mClusterManager = new ClusterManager<>(this, map);
         mClusterManager.setRenderer(new StationRenderer());
-        map.setOnCameraIdleListener(mClusterManager);
+        mMap.setOnCameraIdleListener(mClusterManager);
 
         checkForNightMode();
         displayBikeStations();
@@ -258,25 +259,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    private void setUpStationTypeButtons() {
+    private void setUpStationTypeSegmentGroup() {
         RadioGroup group = findViewById(R.id.station_type_segment_group);
+
         group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup radioGroup, int i) {
                 MarkerManager.Collection markerCollection = mClusterManager.getMarkerCollection();
 
                 for (Marker m : markerCollection.getMarkers()) {
-                    if (m.getSnippet().contains("bikes currently available"))
-                        updateMarkerSnippet(m);
-                    else {
-                        updateMarkerSnippet(m);
-                    }
+                    updateMarkerType(m);
                 }
 
                 if (selectedStation != null) {
                     TextView text = findViewById(R.id.bottom_sheet_byline);
-                    text.setText(selectedStation.getSnippet());
 
+                    text.setText(selectedStation.getSnippet());
                     setUpGraph(selectedStation);
                 }
 
@@ -285,7 +283,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    private void updateMarkerSnippet(Marker marker) {
+    private void updateMarkerType(Marker marker) {
         int totalSpaces = getTotalSpacesForMarker(marker);
         int availableBikes = getAvailableBikesForMarker(marker);
         int availableSpaces = getAvailableSpacesForMarker(marker);
@@ -365,6 +363,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         shim.setVisibility(visibility);
     }
 
+    // This blank shim is a translucent black background. Used to add depth to the app.
     private void setBlankShimVisibility(int visibility) {
         RelativeLayout shim = findViewById(R.id.blank_loading_shim);
         shim.setVisibility(visibility);
@@ -440,10 +439,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
 
+        // This overrides what the "X" button does on the AutoCompleteFragment
         findViewById(R.id.places_autocomplete_clear_button).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 EditText text = findViewById(R.id.places_autocomplete_search_input);
+
+                // We need to set the value to null so that it shows the autocomplete hint. An empty
+                // String isn't enough.
                 text.setText(null);
 
                 deleteRoute();
@@ -509,10 +512,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         routeMarkers.add(mMap.addMarker(new MarkerOptions().position(place.getLatLng()).icon(BitmapDescriptorFactory.defaultMarker(150.0f))));
 
-        String start = "53.330667,-6.258590";
 
         //note: This setting lets us use our real location. Not currently being used.
         // String start = + location.getLatitude() + "," + location.getLongitude();
+        String start = "53.330667,-6.258590";
+
         String end = place.getLatLng().latitude + "," + place.getLatLng().longitude;
 
         String url = "https://dbikes-planner.appspot.com/route?start=" + start + "&end="
@@ -532,45 +536,37 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void setUpJourneyTypeChips() {
         Chip fastestChip = findViewById(R.id.chip_fastest);
-
         fastestChip.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 hideAllCycleRouteLines();
-
                 updateUIForRouteType(fastestCycleRouteType);
             }
         });
 
         Chip quietestChip = findViewById(R.id.chip_quietest);
-
         quietestChip.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 hideAllCycleRouteLines();
-
                 updateUIForRouteType(quietestCycleRouteType);
             }
         });
 
         Chip shortestChip = findViewById(R.id.chip_shortest);
-
         shortestChip.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 hideAllCycleRouteLines();
-
                 updateUIForRouteType(shortestCycleRouteType);
             }
         });
 
         Chip balancedChip = findViewById(R.id.chip_balanced);
-
         balancedChip.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 hideAllCycleRouteLines();
-
                 updateUIForRouteType(balancedCycleRouteType);
             }
         });
@@ -1116,9 +1112,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private boolean hasSoftKeys() {
-        boolean hasSoftwareKeys = true;
-        //c = context; use getContext(); in fragments, and in activities you can
-        //directly access the windowManager();
+        boolean hasSoftwareKeys;
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             Display d = getWindowManager().getDefaultDisplay();
@@ -1151,6 +1145,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         final BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
         bottomSheetBehavior.setDraggable(true);
 
+        // This check is to solve an annoying bug on phones without soft keys (Issue #21 on GitHub).
+        // The bug causes a black bar to appear on the bottom sheet of phones that can't be removed.
+        // This is because bottom sheets and street view embeds don't play nice together supposedly.
+        // This fix sets the peak height on phones without soft keys to be just the title.
+        // This fixes the bug, but isn't the best user experience. I'm not sure what else can be done.
         if (!hasSoftKeys()) {
             // Sets the bottom sheet to hide the directions part of the bottom sheet
             bottomSheet.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -1290,12 +1289,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         historicalSet.setDrawCircleHole(false);
         historicalSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
 
-        if (marker.getSnippet().contains("spaces")) {
-            label = "Today's space availability";
-        } else {
-            label = "Today's bike availability";
-        }
-
         LineDataSet todaysSet = new LineDataSet(todays_values, label);
         todaysSet.setAxisDependency(YAxis.AxisDependency.LEFT);
         todaysSet.setColor(ColorTemplate.rgb("#f72d2d"));
@@ -1315,7 +1308,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private int getMarkerTotalSpaces(Marker marker) {
-        String splitter = marker.getSnippet().contains("bikes currently available") ? " bikes currently available" : " spaces currently available";
+        String splitter = marker.getSnippet().contains("bikes currently available") ?
+                " bikes currently available" : " spaces currently available";
+
         String snippet = marker.getSnippet().split(splitter)[0];
         return Integer.parseInt(snippet.split(" out of ")[1]);
     }
@@ -1328,7 +1323,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         @Override
         protected void onBeforeClusterItemRendered(StationClusterItem item, MarkerOptions markerOptions) {
-            //Todo: with some refactoring, this logic can be combined with how Markers are rendered
 
             String splitter;
             if (item.getSnippet().contains("bikes currently available")) {
