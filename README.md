@@ -11,9 +11,11 @@ The back-end for this project is a Flask web server in Python. It uses a microse
 
 The front-end is an Android application. It displays the location and status of each station in Dublin, as well as historical data for a station. Users can input a destination, and will receive a cycling route to reach this destination, incorporating bike-sharing stations. Basic directions are also provided.
 
-<img src="assets/map_view.jpg" width="300">
-<img src="assets/station_view.jpg" width="300">
-<img src="assets/route_view.jpg" width="300">
+<p float="left">
+  <img src="assets/map_view.jpg" width="300">
+  <img src="assets/station_view.jpg" width="300">
+  <img src="assets/route_view.jpg" width="300">
+</p>
 
 This app is currently designed for use in Dublin. It could easily be extended for other international bike-sharing schemes.
 
