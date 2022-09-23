@@ -63,7 +63,7 @@ Pillow==8.2.0
 plotly==4.6.0
 progressbar2==3.50.1
 prompt-toolkit==3.0.5
-protobuf==3.11.3
+protobuf==3.18.3
 psutil==5.7.0
 ptyprocess==0.6.0
 pyasn1==0.4.8
